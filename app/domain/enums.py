@@ -1,0 +1,28 @@
+from enum import Enum
+
+
+class ComplianceStatus(str, Enum):
+    NOT_STARTED = "NOT_STARTED"
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+    EXPIRED = "EXPIRED"
+
+
+class ComplianceType(str, Enum):
+    CAC = "CAC"
+    FIRS = "FIRS"
+    ITF = "ITF"
+    NSITF = "NSITF"
+    PENCOM = "PENCOM"
+    GROUP_LIFE_INSURANCE = "GROUP_LIFE_INSURANCE"
+    ACCOUNT_AUDITING = "ACCOUNT_AUDITING"
+    SCUML = "SCUML"
+    BPP_FEDERAL = "BPP_FEDERAL"
+    BPP_STATE = "BPP_STATE"
+
+
+class ComplianceMode(str, Enum):
+    NEW = "NEW"
+    RENEWAL = "RENEWAL"
+    PROCESS = "PROCESS"
+    REGISTRATION = "REGISTRATION"

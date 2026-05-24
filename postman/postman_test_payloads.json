@@ -1,0 +1,271 @@
+{
+  "base_url": "http://localhost:8000",
+  "auth_header_format": "Bearer <access_token>",
+  "notes": [
+    "All /api/v1/cac/* and /api/v1/bpp/* endpoints require Authorization header.",
+    "For multipart endpoints, do not send JSON body; use form-data with keys exactly as documented.",
+    "Use register/login response access_token for subsequent requests."
+  ],
+  "endpoints": [
+    {
+      "name": "Start FIRS Renewal Workflow",
+      "method": "POST",
+      "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/start",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Complete Workflow Step",
+      "method": "POST",
+      "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/steps/1/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Provide yearly financial records"
+      }
+    },
+    {
+      "name": "Upload Workflow Document",
+      "method": "POST",
+      "uri": "/api/v1/workflow/FIRS/companies/{company_id}/documents",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "multipart_form_data": {
+        "doc_type": "AUDITED_FINANCIAL_STATEMENTS",
+        "file": "<select-file-in-postman>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Add Workflow Output",
+      "method": "POST",
+      "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/outputs",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "output_type": "TCC",
+        "output_value": "TCC-2026-00012"
+      }
+    },
+    {
+      "name": "Get Workflow Status",
+      "method": "GET",
+      "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/status",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Submit Workflow",
+      "method": "POST",
+      "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/submit",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "expiry_date": "2027-12-31"
+      }
+    },
+    {
+      "name": "Health Check",
+      "method": "GET",
+      "uri": "/health",
+      "headers": {},
+      "json_payload": null
+    },
+    {
+      "name": "Register User",
+      "method": "POST",
+      "uri": "/api/v1/auth/register",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "email": "user@example.com",
+        "password": "yourpassword123",
+        "full_name": "Smart Trybe User"
+      }
+    },
+    {
+      "name": "Login User",
+      "method": "POST",
+      "uri": "/api/v1/auth/login",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "email": "user@example.com",
+        "password": "yourpassword123"
+      }
+    },
+    {
+      "name": "Get Current User",
+      "method": "GET",
+      "uri": "/api/v1/auth/me",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Create CAC Company",
+      "method": "POST",
+      "uri": "/api/v1/cac/companies",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "name": "Acme Nigeria Ltd",
+        "rc_number": "RC-123456",
+        "tin": "12345678-0001",
+        "address": "Victoria Island, Lagos"
+      }
+    },
+    {
+      "name": "List CAC Companies",
+      "method": "GET",
+      "uri": "/api/v1/cac/companies",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Get CAC Company By ID",
+      "method": "GET",
+      "uri": "/api/v1/cac/companies/{company_id}",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Patch CAC Company",
+      "method": "PATCH",
+      "uri": "/api/v1/cac/companies/{company_id}",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "name": "Acme Nigeria Ltd Updated",
+        "address": "Ikoyi, Lagos"
+      }
+    },
+    {
+      "name": "Get CAC Registry",
+      "method": "GET",
+      "uri": "/api/v1/cac/companies/{company_id}/registry",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Upsert CAC Registry",
+      "method": "PUT",
+      "uri": "/api/v1/cac/companies/{company_id}/registry",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "status": "COMPLETED",
+        "expiry_date": "2027-12-31"
+      }
+    },
+    {
+      "name": "Upload CAC Document",
+      "method": "POST",
+      "uri": "/api/v1/cac/companies/{company_id}/documents",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "multipart_form_data": {
+        "doc_type": "CAC_CERTIFICATE",
+        "file": "<select-file-in-postman>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Get BPP Federal Registry",
+      "method": "GET",
+      "uri": "/api/v1/bpp/federal/companies/{company_id}/registry",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Upsert BPP Federal Registry",
+      "method": "PUT",
+      "uri": "/api/v1/bpp/federal/companies/{company_id}/registry",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "status": "PENDING",
+        "expiry_date": null
+      }
+    },
+    {
+      "name": "Upload BPP Federal Document",
+      "method": "POST",
+      "uri": "/api/v1/bpp/federal/companies/{company_id}/documents",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "multipart_form_data": {
+        "doc_type": "APPLICATION_FORM",
+        "file": "<select-file-in-postman>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Get BPP State Registry",
+      "method": "GET",
+      "uri": "/api/v1/bpp/state/companies/{company_id}/registry",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Upsert BPP State Registry",
+      "method": "PUT",
+      "uri": "/api/v1/bpp/state/companies/{company_id}/registry",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "status": "PENDING",
+        "expiry_date": null
+      }
+    },
+    {
+      "name": "Upload BPP State Document",
+      "method": "POST",
+      "uri": "/api/v1/bpp/state/companies/{company_id}/documents",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "multipart_form_data": {
+        "doc_type": "VENDOR_FORM",
+        "file": "<select-file-in-postman>"
+      },
+      "json_payload": null
+    }
+  ]
+}
