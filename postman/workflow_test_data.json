@@ -1,0 +1,472 @@
+{
+  "title": "Smart Trybe Compliance — Workflow Test Data",
+  "base_url": "http://localhost:8000",
+  "auth_header": "Authorization: Bearer <access_token>",
+  "usage_notes": [
+    "Replace {company_id} and <access_token> before running.",
+    "Step complete: POST .../steps/{n}/complete with body {\"step_name\": \"...\"} only (not wrapped in json_payload).",
+    "Document upload: multipart form-data fields doc_type + file (no JSON body).",
+    "Submit: POST .../submit with {\"expiry_date\": \"YYYY-MM-DD\"} — FIRS renewal requires expiry_date.",
+    "BPP Federal/State use /api/v1/bpp/* routes (not workflow). Upload is blocked until FIRS, PENCOM, ITF, NSITF renewals are completed."
+  ],
+  "recommended_completion_order": [
+    "CAC / NEW",
+    "ACCOUNT_AUDITING / PROCESS",
+    "FIRS / NEW",
+    "ITF / NEW",
+    "NSITF / NEW",
+    "PENCOM / NEW",
+    "FIRS / RENEWAL",
+    "ITF / RENEWAL",
+    "NSITF / RENEWAL",
+    "PENCOM / RENEWAL",
+    "GROUP_LIFE_INSURANCE / NEW",
+    "GROUP_LIFE_INSURANCE / RENEWAL",
+    "SCUML / REGISTRATION",
+    "BPP_FEDERAL (registry + documents)",
+    "BPP_STATE (registry + documents)"
+  ],
+  "prerequisites": {
+    "BPP_FEDERAL": {
+      "message": "You cannot register for BPP Federal until you complete these:",
+      "requires_registry_completed": ["FIRS", "PENCOM", "ITF", "NSITF"],
+      "requires_workflow": "RENEWAL completed for each of the above",
+      "firs_extra": "FIRS registry must have status COMPLETED and expiry_date on or after today (active TCC)"
+    },
+    "BPP_STATE": {
+      "same_as": "BPP_FEDERAL"
+    },
+    "FIRS_RENEWAL_submit": {
+      "requires_registry_completed": ["CAC", "ACCOUNT_AUDITING"]
+    },
+    "PENCOM_RENEWAL_submit": {
+      "requires_registry_completed": ["CAC"],
+      "requires_document": "STAFF_LIST on PENCOM (from NEW registration)"
+    }
+  },
+  "workflows": [
+    {
+      "id": "cac_new",
+      "compliance_type": "CAC",
+      "mode": "NEW",
+      "label": "CAC — New Registration",
+      "total_steps": 8,
+      "steps": [
+        { "step_number": 1, "step_name": "Choose 2 proposed company names" },
+        { "step_number": 2, "step_name": "Provide business activity (what the company does)" },
+        { "step_number": 3, "step_name": "Provide directors and shareholders details" },
+        { "step_number": 4, "step_name": "Upload valid ID (NIN or passport)" },
+        { "step_number": 5, "step_name": "Provide company address" },
+        { "step_number": 6, "step_name": "Approve company structure (share capital, ownership %)" },
+        { "step_number": 7, "step_name": "Review and confirm all details" },
+        { "step_number": 8, "step_name": "Make payment" }
+      ],
+      "required_documents": [
+        { "doc_type": "VALID_ID", "description": "NIN slip, passport, or driver's license" },
+        { "doc_type": "PASSPORT_PHOTO", "description": "Passport photograph" },
+        { "doc_type": "ADDRESS_PROOF", "description": "Utility bill or address proof" },
+        { "doc_type": "SIGNATURE", "description": "Signature (drawn or uploaded)" }
+      ],
+      "outputs_received": [
+        { "output_type": "CAC_CERTIFICATE", "example_value": "CAC-CERT-2026-00001" },
+        { "output_type": "RC_NUMBER", "example_value": "RC-123456" },
+        { "output_type": "STATUS_REPORT", "example_value": "CAC-STATUS-2026-00001" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" }
+    },
+    {
+      "id": "cac_renewal",
+      "compliance_type": "CAC",
+      "mode": "RENEWAL",
+      "label": "CAC — Annual Returns (Yearly Renewal)",
+      "total_steps": 5,
+      "steps": [
+        { "step_number": 1, "step_name": "Confirm company is still active" },
+        { "step_number": 2, "step_name": "Provide basic company updates (if any)" },
+        { "step_number": 3, "step_name": "Upload financial summary (or approve no activity)" },
+        { "step_number": 4, "step_name": "Approve filing" },
+        { "step_number": 5, "step_name": "Make payment" }
+      ],
+      "required_documents": [
+        { "doc_type": "FINANCIAL_SUMMARY", "description": "Financial summary or audited accounts" }
+      ],
+      "outputs_received": [
+        { "output_type": "ANNUAL_RETURN_CONFIRMATION", "example_value": "CAC-AR-2026-00001" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" }
+    },
+    {
+      "id": "firs_new",
+      "compliance_type": "FIRS",
+      "mode": "NEW",
+      "label": "FIRS — New Registration (TIN Setup)",
+      "total_steps": 5,
+      "steps": [
+        { "step_number": 1, "step_name": "Provide CAC details" },
+        { "step_number": 2, "step_name": "Provide business address" },
+        { "step_number": 3, "step_name": "Provide contact details" },
+        { "step_number": 4, "step_name": "Confirm nature of business" },
+        { "step_number": 5, "step_name": "Submit application" }
+      ],
+      "required_documents": [
+        { "doc_type": "CAC_CERTIFICATE", "description": "CAC Certificate" },
+        { "doc_type": "CAC_STATUS_REPORT", "description": "CAC Status Report" },
+        { "doc_type": "DIRECTOR_DETAILS", "description": "Director details" }
+      ],
+      "outputs_received": [
+        { "output_type": "TIN", "example_value": "12345678-0001" }
+      ],
+      "submit_payload": { "expiry_date": null }
+    },
+    {
+      "id": "firs_renewal",
+      "compliance_type": "FIRS",
+      "mode": "RENEWAL",
+      "label": "FIRS — Renewal (Tax Compliance / TCC)",
+      "total_steps": 5,
+      "steps": [
+        { "step_number": 1, "step_name": "Provide yearly financial records" },
+        { "step_number": 2, "step_name": "Confirm revenue for the year" },
+        { "step_number": 3, "step_name": "Upload audited accounts (if required)" },
+        { "step_number": 4, "step_name": "Approve tax filing" },
+        { "step_number": 5, "step_name": "Pay tax (if applicable)" }
+      ],
+      "required_documents": [
+        { "doc_type": "AUDITED_FINANCIAL_STATEMENTS", "description": "Audited financial statements" },
+        { "doc_type": "BANK_STATEMENTS", "description": "Optional but useful — not enforced by API" }
+      ],
+      "outputs_received": [
+        { "output_type": "TCC", "example_value": "TCC-2026-00012" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" },
+      "submit_prerequisites": ["CAC", "ACCOUNT_AUDITING"]
+    },
+    {
+      "id": "itf_new",
+      "compliance_type": "ITF",
+      "mode": "NEW",
+      "label": "ITF — New Registration",
+      "total_steps": 4,
+      "steps": [
+        { "step_number": 1, "step_name": "Confirm number of employees" },
+        { "step_number": 2, "step_name": "Upload staff list" },
+        { "step_number": 3, "step_name": "Provide payroll estimate" },
+        { "step_number": 4, "step_name": "Submit application" }
+      ],
+      "required_documents": [
+        { "doc_type": "CAC_CERTIFICATE", "description": "CAC Certificate" },
+        { "doc_type": "EMPLOYEE_LIST", "description": "Employee list" },
+        { "doc_type": "PAYROLL_INFO", "description": "Payroll information" }
+      ],
+      "outputs_received": [
+        { "output_type": "ITF_REGISTRATION_NUMBER", "example_value": "ITF-REG-2026-00001" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" }
+    },
+    {
+      "id": "itf_renewal",
+      "compliance_type": "ITF",
+      "mode": "RENEWAL",
+      "label": "ITF — Renewal (Compliance Certificate)",
+      "total_steps": 4,
+      "steps": [
+        { "step_number": 1, "step_name": "Upload updated payroll" },
+        { "step_number": 2, "step_name": "Confirm total staff salaries" },
+        { "step_number": 3, "step_name": "Approve 1% contribution calculation" },
+        { "step_number": 4, "step_name": "Make payment" }
+      ],
+      "required_documents": [
+        { "doc_type": "PAYROLL_REPORT", "description": "Payroll report" },
+        { "doc_type": "PAYMENT_PROOF", "description": "Payment proof" }
+      ],
+      "outputs_received": [
+        { "output_type": "ITF_COMPLIANCE_CERTIFICATE", "example_value": "ITF-CERT-2026-00001" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" }
+    },
+    {
+      "id": "nsitf_new",
+      "compliance_type": "NSITF",
+      "mode": "NEW",
+      "label": "NSITF — New Registration",
+      "total_steps": 4,
+      "steps": [
+        { "step_number": 1, "step_name": "Provide employee list" },
+        { "step_number": 2, "step_name": "Provide payroll details" },
+        { "step_number": 3, "step_name": "Confirm total salary structure" },
+        { "step_number": 4, "step_name": "Submit application" }
+      ],
+      "required_documents": [
+        { "doc_type": "CAC_CERTIFICATE", "description": "CAC Certificate" },
+        { "doc_type": "STAFF_LIST", "description": "Staff list" },
+        { "doc_type": "PAYROLL_SCHEDULE", "description": "Payroll schedule" }
+      ],
+      "outputs_received": [
+        { "output_type": "NSITF_REGISTRATION_CERTIFICATE", "example_value": "NSITF-REG-2026-00001" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" }
+    },
+    {
+      "id": "nsitf_renewal",
+      "compliance_type": "NSITF",
+      "mode": "RENEWAL",
+      "label": "NSITF — Renewal (Compliance Certificate)",
+      "total_steps": 3,
+      "steps": [
+        { "step_number": 1, "step_name": "Update employee and payroll info" },
+        { "step_number": 2, "step_name": "Approve contribution (1% of payroll)" },
+        { "step_number": 3, "step_name": "Make payment" }
+      ],
+      "required_documents": [
+        { "doc_type": "UPDATED_PAYROLL", "description": "Updated payroll" },
+        { "doc_type": "PAYMENT_RECEIPT", "description": "Payment receipt" }
+      ],
+      "outputs_received": [
+        { "output_type": "NSITF_COMPLIANCE_CERTIFICATE", "example_value": "NSITF-CERT-2026-00001" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" }
+    },
+    {
+      "id": "pencom_new",
+      "compliance_type": "PENCOM",
+      "mode": "NEW",
+      "label": "PENCOM — New Registration",
+      "total_steps": 4,
+      "steps": [
+        { "step_number": 1, "step_name": "Confirm number of employees" },
+        { "step_number": 2, "step_name": "Provide employee details" },
+        { "step_number": 3, "step_name": "Select Pension Fund Administrator (or allow system assign)" },
+        { "step_number": 4, "step_name": "Approve pension setup" }
+      ],
+      "required_documents": [
+        { "doc_type": "STAFF_LIST", "description": "Staff list" },
+        { "doc_type": "EMPLOYMENT_DETAILS", "description": "Employment details" }
+      ],
+      "outputs_received": [
+        { "output_type": "PENSION_REGISTRATION_CONFIRMATION", "example_value": "PENCOM-REG-2026-00001" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" }
+    },
+    {
+      "id": "pencom_renewal",
+      "compliance_type": "PENCOM",
+      "mode": "RENEWAL",
+      "label": "PENCOM — Renewal (Compliance Certificate)",
+      "total_steps": 3,
+      "steps": [
+        { "step_number": 1, "step_name": "Confirm monthly pension remittance" },
+        { "step_number": 2, "step_name": "Upload payment records" },
+        { "step_number": 3, "step_name": "Approve compliance application" }
+      ],
+      "required_documents": [
+        { "doc_type": "PENSION_REMITTANCE_RECORDS", "description": "Pension remittance records" },
+        { "doc_type": "EMPLOYEE_PENSION_DETAILS", "description": "Employee pension details" }
+      ],
+      "outputs_received": [
+        { "output_type": "PENCOM_COMPLIANCE_CERTIFICATE", "example_value": "PENCOM-CERT-2026-00001" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" },
+      "submit_prerequisites": ["CAC", "PENCOM document STAFF_LIST from NEW workflow"]
+    },
+    {
+      "id": "group_life_new",
+      "compliance_type": "GROUP_LIFE_INSURANCE",
+      "mode": "NEW",
+      "label": "Group Life Insurance — New Registration",
+      "total_steps": 4,
+      "steps": [
+        { "step_number": 1, "step_name": "Upload employee list" },
+        { "step_number": 2, "step_name": "Provide salary structure" },
+        { "step_number": 3, "step_name": "Approve insurance quote" },
+        { "step_number": 4, "step_name": "Make payment" }
+      ],
+      "required_documents": [
+        { "doc_type": "STAFF_SALARY_LIST", "description": "Staff list with salaries" },
+        { "doc_type": "CAC_DETAILS", "description": "CAC details" }
+      ],
+      "outputs_received": [
+        { "output_type": "LIFE_INSURANCE_CERTIFICATE", "example_value": "GLI-CERT-2026-00001" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" }
+    },
+    {
+      "id": "group_life_renewal",
+      "compliance_type": "GROUP_LIFE_INSURANCE",
+      "mode": "RENEWAL",
+      "label": "Group Life Insurance — Renewal",
+      "total_steps": 4,
+      "steps": [
+        { "step_number": 1, "step_name": "Update staff list" },
+        { "step_number": 2, "step_name": "Confirm salary changes" },
+        { "step_number": 3, "step_name": "Approve new premium" },
+        { "step_number": 4, "step_name": "Make payment" }
+      ],
+      "required_documents": [
+        { "doc_type": "UPDATED_PAYROLL", "description": "Updated payroll" },
+        { "doc_type": "PREVIOUS_CERTIFICATE", "description": "Previous certificate" }
+      ],
+      "outputs_received": [
+        { "output_type": "RENEWED_INSURANCE_CERTIFICATE", "example_value": "GLI-CERT-2027-00001" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" }
+    },
+    {
+      "id": "account_auditing_process",
+      "compliance_type": "ACCOUNT_AUDITING",
+      "mode": "PROCESS",
+      "label": "Account Auditing — Process",
+      "total_steps": 3,
+      "steps": [
+        { "step_number": 1, "step_name": "Upload income records, expenses, and bank statements" },
+        { "step_number": 2, "step_name": "Answer basic financial questions" },
+        { "step_number": 3, "step_name": "Approve draft accounts" }
+      ],
+      "required_documents": [
+        { "doc_type": "BANK_STATEMENTS", "description": "Bank statements" },
+        { "doc_type": "TRANSACTION_RECORDS", "description": "Transaction records" },
+        { "doc_type": "PREVIOUS_FINANCIALS", "description": "Previous financials (optional — not enforced by API)" }
+      ],
+      "outputs_received": [
+        { "output_type": "AUDITED_FINANCIAL_STATEMENTS", "example_value": "AFS-2026-00001" }
+      ],
+      "submit_payload": { "expiry_date": "2027-12-31" }
+    },
+    {
+      "id": "scuml_registration",
+      "compliance_type": "SCUML",
+      "mode": "REGISTRATION",
+      "label": "SCUML — Registration",
+      "total_steps": 5,
+      "steps": [
+        { "step_number": 1, "step_name": "Confirm business type (Designated Non-Financial Business)" },
+        { "step_number": 2, "step_name": "Provide company details" },
+        { "step_number": 3, "step_name": "Upload required documents" },
+        { "step_number": 4, "step_name": "Fill compliance questionnaire (transactions, clients, etc.)" },
+        { "step_number": 5, "step_name": "Submit application" }
+      ],
+      "required_documents": [
+        { "doc_type": "CAC_CERTIFICATE", "description": "CAC Certificate" },
+        { "doc_type": "CAC_STATUS_REPORT", "description": "CAC Status Report" },
+        { "doc_type": "DIRECTOR_VALID_ID", "description": "Valid ID of directors" },
+        { "doc_type": "UTILITY_BILL", "description": "Utility bill (business address)" },
+        { "doc_type": "TIN", "description": "Tax Identification Number" }
+      ],
+      "outputs_received": [
+        { "output_type": "SCUML_CERTIFICATE", "example_value": "SCUML-CERT-2026-00001" },
+        { "output_type": "SCUML_NUMBER", "example_value": "SCUML-2026-00001" }
+      ],
+      "submit_payload": { "expiry_date": null }
+    }
+  ],
+  "bpp_registration": [
+    {
+      "id": "bpp_federal",
+      "compliance_type": "BPP_FEDERAL",
+      "label": "BPP Federal — Contractor Registration",
+      "api_style": "registry_and_documents",
+      "platform_handled_steps": true,
+      "checklist_steps": [
+        { "step_number": 1, "step_name": "Confirm company wants to bid for federal contracts" },
+        { "step_number": 2, "step_name": "Provide company profile details" },
+        { "step_number": 3, "step_name": "Upload all compliance documents" },
+        { "step_number": 4, "step_name": "Fill vendor registration form" },
+        { "step_number": 5, "step_name": "Submit application" }
+      ],
+      "outputs_received": [
+        { "output_type": "BPP_COMPLIANCE_CERTIFICATE", "example_value": "BPP-FED-2026-00001" }
+      ],
+      "blocked_until_completed": ["FIRS", "PENCOM", "ITF", "NSITF"]
+    },
+    {
+      "id": "bpp_state",
+      "compliance_type": "BPP_STATE",
+      "label": "State BPP — State Procurement Registration",
+      "api_style": "registry_and_documents",
+      "platform_handled_steps": true,
+      "checklist_steps": [
+        { "step_number": 1, "step_name": "Select state of operation" },
+        { "step_number": 2, "step_name": "Provide company details" },
+        { "step_number": 3, "step_name": "Upload compliance documents" },
+        { "step_number": 4, "step_name": "Fill vendor registration form" },
+        { "step_number": 5, "step_name": "Submit application" }
+      ],
+      "outputs_received": [
+        { "output_type": "STATE_VENDOR_REGISTRATION", "example_value": "BPP-STATE-LA-2026-00001" },
+        { "output_type": "STATE_CONTRACT_ELIGIBILITY", "example_value": "ELIGIBLE" }
+      ],
+      "blocked_until_completed": ["FIRS", "PENCOM", "ITF", "NSITF"]
+    }
+  ],
+  "api_request_templates": {
+    "workflow_start": {
+      "method": "POST",
+      "uri": "/api/v1/workflow/{compliance_type}/{mode}/companies/{company_id}/start",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "body": null
+    },
+    "workflow_complete_step": {
+      "method": "POST",
+      "uri": "/api/v1/workflow/{compliance_type}/{mode}/companies/{company_id}/steps/{step_number}/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "body": { "step_name": "<from steps[].step_name>" }
+    },
+    "workflow_upload_document": {
+      "method": "POST",
+      "uri": "/api/v1/workflow/{compliance_type}/companies/{company_id}/documents",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "multipart_form_data": {
+        "doc_type": "<from required_documents[].doc_type>",
+        "file": "<select-file-in-postman>"
+      }
+    },
+    "workflow_add_output": {
+      "method": "POST",
+      "uri": "/api/v1/workflow/{compliance_type}/{mode}/companies/{company_id}/outputs",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "output_type": "<from outputs_received[].output_type>",
+        "output_value": "<from outputs_received[].example_value>"
+      }
+    },
+    "workflow_status": {
+      "method": "GET",
+      "uri": "/api/v1/workflow/{compliance_type}/{mode}/companies/{company_id}/status",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "body": null
+    },
+    "workflow_submit": {
+      "method": "POST",
+      "uri": "/api/v1/workflow/{compliance_type}/{mode}/companies/{company_id}/submit",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "body": { "expiry_date": "2027-12-31" }
+    },
+    "bpp_put_registry": {
+      "method": "PUT",
+      "uri": "/api/v1/bpp/federal/companies/{company_id}/registry",
+      "note": "Use /bpp/state/ for BPP_STATE",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "body": { "status": "PENDING", "expiry_date": null }
+    },
+    "bpp_upload_document": {
+      "method": "POST",
+      "uri": "/api/v1/bpp/federal/companies/{company_id}/documents",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "multipart_form_data": {
+        "doc_type": "APPLICATION_FORM",
+        "file": "<select-file-in-postman>"
+      }
+    }
+  }
+}

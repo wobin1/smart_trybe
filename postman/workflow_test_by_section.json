@@ -1,0 +1,2218 @@
+{
+  "base_url": "http://localhost:8000",
+  "auth_header_format": "Bearer <access_token>",
+  "notes": [
+    "Replace {company_id} and <access_token> before running.",
+    "Step complete: POST .../steps/{n}/complete with body {\"step_name\": \"...\"} only (not wrapped in json_payload).",
+    "Document upload: multipart form-data fields doc_type + file (no JSON body).",
+    "Submit: POST .../submit with {\"expiry_date\": \"YYYY-MM-DD\"} \u2014 FIRS renewal requires expiry_date.",
+    "BPP Federal/State use /api/v1/bpp/* routes (not workflow). Upload is blocked until FIRS, PENCOM, ITF, NSITF renewals are completed.",
+    "Each section endpoints[] must be run top-to-bottom within that section.",
+    "Sections must be run in section_id order unless you already completed prerequisites.",
+    "Request body for JSON endpoints is json_payload (send as raw JSON, not wrapped)."
+  ],
+  "recommended_section_order": [
+    "00 Setup \u2014 run first (once per user)",
+    "01 CAC / NEW \u2014 CAC \u2014 New Registration",
+    "02 ACCOUNT_AUDITING / PROCESS \u2014 Account Auditing \u2014 Process",
+    "03 FIRS / NEW \u2014 FIRS \u2014 New Registration (TIN Setup)",
+    "04 ITF / NEW \u2014 ITF \u2014 New Registration",
+    "05 NSITF / NEW \u2014 NSITF \u2014 New Registration",
+    "06 PENCOM / NEW \u2014 PENCOM \u2014 New Registration",
+    "07 FIRS / RENEWAL \u2014 FIRS \u2014 Renewal (Tax Compliance / TCC)",
+    "08 ITF / RENEWAL \u2014 ITF \u2014 Renewal (Compliance Certificate)",
+    "09 NSITF / RENEWAL \u2014 NSITF \u2014 Renewal (Compliance Certificate)",
+    "10 PENCOM / RENEWAL \u2014 PENCOM \u2014 Renewal (Compliance Certificate)",
+    "11 CAC / RENEWAL \u2014 CAC \u2014 Annual Returns (Yearly Renewal)",
+    "12 GROUP_LIFE_INSURANCE / NEW \u2014 Group Life Insurance \u2014 New Registration",
+    "13 GROUP_LIFE_INSURANCE / RENEWAL \u2014 Group Life Insurance \u2014 Renewal",
+    "14 SCUML / REGISTRATION \u2014 SCUML \u2014 Registration",
+    "15 BPP_FEDERAL \u2014 BPP Federal \u2014 Contractor Registration",
+    "16 BPP_STATE \u2014 State BPP \u2014 State Procurement Registration",
+    "99 Optional \u2014 read-only / company maintenance"
+  ],
+  "sections": [
+    {
+      "section_id": "00",
+      "section_title": "Setup \u2014 run first (once per user)",
+      "description": "Register, login, create company. Save access_token and company_id for all later sections.",
+      "run_after": null,
+      "endpoints": [
+        {
+          "name": "Health Check",
+          "method": "GET",
+          "uri": "/health",
+          "json_payload": null
+        },
+        {
+          "name": "Register User",
+          "method": "POST",
+          "uri": "/api/v1/auth/register",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "email": "user@example.com",
+            "password": "yourpassword123",
+            "full_name": "Smart Trybe User"
+          }
+        },
+        {
+          "name": "Login User",
+          "method": "POST",
+          "uri": "/api/v1/auth/login",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "email": "user@example.com",
+            "password": "yourpassword123"
+          }
+        },
+        {
+          "name": "Get Current User",
+          "method": "GET",
+          "uri": "/api/v1/auth/me",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Create CAC Company",
+          "method": "POST",
+          "uri": "/api/v1/cac/companies",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "name": "Acme Nigeria Ltd",
+            "rc_number": "RC-123456",
+            "tin": "12345678-0001",
+            "address": "Victoria Island, Lagos"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "01",
+      "section_title": "CAC / NEW \u2014 CAC \u2014 New Registration",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 00",
+      "compliance_type": "CAC",
+      "mode": "NEW",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 CAC \u2014 New Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/8 \u2014 Choose 2 proposed company names",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Choose 2 proposed company names"
+          }
+        },
+        {
+          "name": "Step 2/8 \u2014 Provide business activity (what the company does)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide business activity (what the company does)"
+          }
+        },
+        {
+          "name": "Step 3/8 \u2014 Provide directors and shareholders details",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide directors and shareholders details"
+          }
+        },
+        {
+          "name": "Step 4/8 \u2014 Upload valid ID (NIN or passport)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/4/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Upload valid ID (NIN or passport)"
+          }
+        },
+        {
+          "name": "Step 5/8 \u2014 Provide company address",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/5/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide company address"
+          }
+        },
+        {
+          "name": "Step 6/8 \u2014 Approve company structure (share capital, ownership %)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/6/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Approve company structure (share capital, ownership %)"
+          }
+        },
+        {
+          "name": "Step 7/8 \u2014 Review and confirm all details",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/7/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Review and confirm all details"
+          }
+        },
+        {
+          "name": "Step 8/8 \u2014 Make payment",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/8/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Make payment"
+          }
+        },
+        {
+          "name": "Upload document \u2014 VALID_ID",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "VALID_ID",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 PASSPORT_PHOTO",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "PASSPORT_PHOTO",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 ADDRESS_PROOF",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "ADDRESS_PROOF",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 SIGNATURE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "SIGNATURE",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 CAC_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "CAC_CERTIFICATE",
+            "output_value": "CAC-CERT-2026-00001"
+          }
+        },
+        {
+          "name": "Add output \u2014 RC_NUMBER",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "RC_NUMBER",
+            "output_value": "RC-123456"
+          }
+        },
+        {
+          "name": "Add output \u2014 STATUS_REPORT",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "STATUS_REPORT",
+            "output_value": "CAC-STATUS-2026-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 CAC \u2014 New Registration",
+          "method": "GET",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 CAC \u2014 New Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "02",
+      "section_title": "ACCOUNT_AUDITING / PROCESS \u2014 Account Auditing \u2014 Process",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 01",
+      "compliance_type": "ACCOUNT_AUDITING",
+      "mode": "PROCESS",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 Account Auditing \u2014 Process",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ACCOUNT_AUDITING/PROCESS/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/3 \u2014 Upload income records, expenses, and bank statements",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ACCOUNT_AUDITING/PROCESS/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Upload income records, expenses, and bank statements"
+          }
+        },
+        {
+          "name": "Step 2/3 \u2014 Answer basic financial questions",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ACCOUNT_AUDITING/PROCESS/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Answer basic financial questions"
+          }
+        },
+        {
+          "name": "Step 3/3 \u2014 Approve draft accounts",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ACCOUNT_AUDITING/PROCESS/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Approve draft accounts"
+          }
+        },
+        {
+          "name": "Upload document \u2014 BANK_STATEMENTS",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ACCOUNT_AUDITING/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "BANK_STATEMENTS",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 TRANSACTION_RECORDS",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ACCOUNT_AUDITING/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "TRANSACTION_RECORDS",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 AUDITED_FINANCIAL_STATEMENTS",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ACCOUNT_AUDITING/PROCESS/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "AUDITED_FINANCIAL_STATEMENTS",
+            "output_value": "AFS-2026-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 Account Auditing \u2014 Process",
+          "method": "GET",
+          "uri": "/api/v1/workflow/ACCOUNT_AUDITING/PROCESS/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 Account Auditing \u2014 Process",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ACCOUNT_AUDITING/PROCESS/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "03",
+      "section_title": "FIRS / NEW \u2014 FIRS \u2014 New Registration (TIN Setup)",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 01",
+      "compliance_type": "FIRS",
+      "mode": "NEW",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 FIRS \u2014 New Registration (TIN Setup)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/NEW/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/5 \u2014 Provide CAC details",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/NEW/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide CAC details"
+          }
+        },
+        {
+          "name": "Step 2/5 \u2014 Provide business address",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/NEW/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide business address"
+          }
+        },
+        {
+          "name": "Step 3/5 \u2014 Provide contact details",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/NEW/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide contact details"
+          }
+        },
+        {
+          "name": "Step 4/5 \u2014 Confirm nature of business",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/NEW/companies/{company_id}/steps/4/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Confirm nature of business"
+          }
+        },
+        {
+          "name": "Step 5/5 \u2014 Submit application",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/NEW/companies/{company_id}/steps/5/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Submit application"
+          }
+        },
+        {
+          "name": "Upload document \u2014 CAC_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "CAC_CERTIFICATE",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 CAC_STATUS_REPORT",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "CAC_STATUS_REPORT",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 DIRECTOR_DETAILS",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "DIRECTOR_DETAILS",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 TIN",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/NEW/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "TIN",
+            "output_value": "12345678-0001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 FIRS \u2014 New Registration (TIN Setup)",
+          "method": "GET",
+          "uri": "/api/v1/workflow/FIRS/NEW/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 FIRS \u2014 New Registration (TIN Setup)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/NEW/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": null
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "04",
+      "section_title": "ITF / NEW \u2014 ITF \u2014 New Registration",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 01",
+      "compliance_type": "ITF",
+      "mode": "NEW",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 ITF \u2014 New Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/NEW/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/4 \u2014 Confirm number of employees",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/NEW/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Confirm number of employees"
+          }
+        },
+        {
+          "name": "Step 2/4 \u2014 Upload staff list",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/NEW/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Upload staff list"
+          }
+        },
+        {
+          "name": "Step 3/4 \u2014 Provide payroll estimate",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/NEW/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide payroll estimate"
+          }
+        },
+        {
+          "name": "Step 4/4 \u2014 Submit application",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/NEW/companies/{company_id}/steps/4/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Submit application"
+          }
+        },
+        {
+          "name": "Upload document \u2014 CAC_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "CAC_CERTIFICATE",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 EMPLOYEE_LIST",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "EMPLOYEE_LIST",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 PAYROLL_INFO",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "PAYROLL_INFO",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 ITF_REGISTRATION_NUMBER",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/NEW/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "ITF_REGISTRATION_NUMBER",
+            "output_value": "ITF-REG-2026-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 ITF \u2014 New Registration",
+          "method": "GET",
+          "uri": "/api/v1/workflow/ITF/NEW/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 ITF \u2014 New Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/NEW/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "05",
+      "section_title": "NSITF / NEW \u2014 NSITF \u2014 New Registration",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 01",
+      "compliance_type": "NSITF",
+      "mode": "NEW",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 NSITF \u2014 New Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/NEW/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/4 \u2014 Provide employee list",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/NEW/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide employee list"
+          }
+        },
+        {
+          "name": "Step 2/4 \u2014 Provide payroll details",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/NEW/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide payroll details"
+          }
+        },
+        {
+          "name": "Step 3/4 \u2014 Confirm total salary structure",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/NEW/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Confirm total salary structure"
+          }
+        },
+        {
+          "name": "Step 4/4 \u2014 Submit application",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/NEW/companies/{company_id}/steps/4/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Submit application"
+          }
+        },
+        {
+          "name": "Upload document \u2014 CAC_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "CAC_CERTIFICATE",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 STAFF_LIST",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "STAFF_LIST",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 PAYROLL_SCHEDULE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "PAYROLL_SCHEDULE",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 NSITF_REGISTRATION_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/NEW/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "NSITF_REGISTRATION_CERTIFICATE",
+            "output_value": "NSITF-REG-2026-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 NSITF \u2014 New Registration",
+          "method": "GET",
+          "uri": "/api/v1/workflow/NSITF/NEW/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 NSITF \u2014 New Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/NEW/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "06",
+      "section_title": "PENCOM / NEW \u2014 PENCOM \u2014 New Registration",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 01",
+      "compliance_type": "PENCOM",
+      "mode": "NEW",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 PENCOM \u2014 New Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/NEW/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/4 \u2014 Confirm number of employees",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/NEW/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Confirm number of employees"
+          }
+        },
+        {
+          "name": "Step 2/4 \u2014 Provide employee details",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/NEW/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide employee details"
+          }
+        },
+        {
+          "name": "Step 3/4 \u2014 Select Pension Fund Administrator (or allow system assign)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/NEW/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Select Pension Fund Administrator (or allow system assign)"
+          }
+        },
+        {
+          "name": "Step 4/4 \u2014 Approve pension setup",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/NEW/companies/{company_id}/steps/4/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Approve pension setup"
+          }
+        },
+        {
+          "name": "Upload document \u2014 STAFF_LIST",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "STAFF_LIST",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 EMPLOYMENT_DETAILS",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "EMPLOYMENT_DETAILS",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 PENSION_REGISTRATION_CONFIRMATION",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/NEW/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "PENSION_REGISTRATION_CONFIRMATION",
+            "output_value": "PENCOM-REG-2026-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 PENCOM \u2014 New Registration",
+          "method": "GET",
+          "uri": "/api/v1/workflow/PENCOM/NEW/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 PENCOM \u2014 New Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/NEW/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "07",
+      "section_title": "FIRS / RENEWAL \u2014 FIRS \u2014 Renewal (Tax Compliance / TCC)",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Sections 01 + 03 (CAC + Account Auditing submitted)",
+      "compliance_type": "FIRS",
+      "mode": "RENEWAL",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 FIRS \u2014 Renewal (Tax Compliance / TCC)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/5 \u2014 Provide yearly financial records",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide yearly financial records"
+          }
+        },
+        {
+          "name": "Step 2/5 \u2014 Confirm revenue for the year",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Confirm revenue for the year"
+          }
+        },
+        {
+          "name": "Step 3/5 \u2014 Upload audited accounts (if required)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Upload audited accounts (if required)"
+          }
+        },
+        {
+          "name": "Step 4/5 \u2014 Approve tax filing",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/steps/4/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Approve tax filing"
+          }
+        },
+        {
+          "name": "Step 5/5 \u2014 Pay tax (if applicable)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/steps/5/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Pay tax (if applicable)"
+          }
+        },
+        {
+          "name": "Upload document \u2014 AUDITED_FINANCIAL_STATEMENTS",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "AUDITED_FINANCIAL_STATEMENTS",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 TCC",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "TCC",
+            "output_value": "TCC-2026-00012"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 FIRS \u2014 Renewal (Tax Compliance / TCC)",
+          "method": "GET",
+          "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 FIRS \u2014 Renewal (Tax Compliance / TCC) (requires: CAC, ACCOUNT_AUDITING)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "08",
+      "section_title": "ITF / RENEWAL \u2014 ITF \u2014 Renewal (Compliance Certificate)",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 07",
+      "compliance_type": "ITF",
+      "mode": "RENEWAL",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 ITF \u2014 Renewal (Compliance Certificate)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/RENEWAL/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/4 \u2014 Upload updated payroll",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/RENEWAL/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Upload updated payroll"
+          }
+        },
+        {
+          "name": "Step 2/4 \u2014 Confirm total staff salaries",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/RENEWAL/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Confirm total staff salaries"
+          }
+        },
+        {
+          "name": "Step 3/4 \u2014 Approve 1% contribution calculation",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/RENEWAL/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Approve 1% contribution calculation"
+          }
+        },
+        {
+          "name": "Step 4/4 \u2014 Make payment",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/RENEWAL/companies/{company_id}/steps/4/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Make payment"
+          }
+        },
+        {
+          "name": "Upload document \u2014 PAYROLL_REPORT",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "PAYROLL_REPORT",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 PAYMENT_PROOF",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "PAYMENT_PROOF",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 ITF_COMPLIANCE_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/RENEWAL/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "ITF_COMPLIANCE_CERTIFICATE",
+            "output_value": "ITF-CERT-2026-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 ITF \u2014 Renewal (Compliance Certificate)",
+          "method": "GET",
+          "uri": "/api/v1/workflow/ITF/RENEWAL/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 ITF \u2014 Renewal (Compliance Certificate)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/ITF/RENEWAL/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "09",
+      "section_title": "NSITF / RENEWAL \u2014 NSITF \u2014 Renewal (Compliance Certificate)",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 08",
+      "compliance_type": "NSITF",
+      "mode": "RENEWAL",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 NSITF \u2014 Renewal (Compliance Certificate)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/RENEWAL/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/3 \u2014 Update employee and payroll info",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/RENEWAL/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Update employee and payroll info"
+          }
+        },
+        {
+          "name": "Step 2/3 \u2014 Approve contribution (1% of payroll)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/RENEWAL/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Approve contribution (1% of payroll)"
+          }
+        },
+        {
+          "name": "Step 3/3 \u2014 Make payment",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/RENEWAL/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Make payment"
+          }
+        },
+        {
+          "name": "Upload document \u2014 UPDATED_PAYROLL",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "UPDATED_PAYROLL",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 PAYMENT_RECEIPT",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "PAYMENT_RECEIPT",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 NSITF_COMPLIANCE_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/RENEWAL/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "NSITF_COMPLIANCE_CERTIFICATE",
+            "output_value": "NSITF-CERT-2026-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 NSITF \u2014 Renewal (Compliance Certificate)",
+          "method": "GET",
+          "uri": "/api/v1/workflow/NSITF/RENEWAL/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 NSITF \u2014 Renewal (Compliance Certificate)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/NSITF/RENEWAL/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "10",
+      "section_title": "PENCOM / RENEWAL \u2014 PENCOM \u2014 Renewal (Compliance Certificate)",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Sections 01 + 09",
+      "compliance_type": "PENCOM",
+      "mode": "RENEWAL",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 PENCOM \u2014 Renewal (Compliance Certificate)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/RENEWAL/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/3 \u2014 Confirm monthly pension remittance",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/RENEWAL/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Confirm monthly pension remittance"
+          }
+        },
+        {
+          "name": "Step 2/3 \u2014 Upload payment records",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/RENEWAL/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Upload payment records"
+          }
+        },
+        {
+          "name": "Step 3/3 \u2014 Approve compliance application",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/RENEWAL/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Approve compliance application"
+          }
+        },
+        {
+          "name": "Upload document \u2014 PENSION_REMITTANCE_RECORDS",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "PENSION_REMITTANCE_RECORDS",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 EMPLOYEE_PENSION_DETAILS",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "EMPLOYEE_PENSION_DETAILS",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 PENCOM_COMPLIANCE_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/RENEWAL/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "PENCOM_COMPLIANCE_CERTIFICATE",
+            "output_value": "PENCOM-CERT-2026-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 PENCOM \u2014 Renewal (Compliance Certificate)",
+          "method": "GET",
+          "uri": "/api/v1/workflow/PENCOM/RENEWAL/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 PENCOM \u2014 Renewal (Compliance Certificate) (requires: CAC, PENCOM document STAFF_LIST from NEW workflow)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/PENCOM/RENEWAL/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "11",
+      "section_title": "CAC / RENEWAL \u2014 CAC \u2014 Annual Returns (Yearly Renewal)",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 01",
+      "compliance_type": "CAC",
+      "mode": "RENEWAL",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 CAC \u2014 Annual Returns (Yearly Renewal)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/5 \u2014 Confirm company is still active",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Confirm company is still active"
+          }
+        },
+        {
+          "name": "Step 2/5 \u2014 Provide basic company updates (if any)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide basic company updates (if any)"
+          }
+        },
+        {
+          "name": "Step 3/5 \u2014 Upload financial summary (or approve no activity)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Upload financial summary (or approve no activity)"
+          }
+        },
+        {
+          "name": "Step 4/5 \u2014 Approve filing",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/4/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Approve filing"
+          }
+        },
+        {
+          "name": "Step 5/5 \u2014 Make payment",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/5/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Make payment"
+          }
+        },
+        {
+          "name": "Upload document \u2014 FINANCIAL_SUMMARY",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "FINANCIAL_SUMMARY",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 ANNUAL_RETURN_CONFIRMATION",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "ANNUAL_RETURN_CONFIRMATION",
+            "output_value": "CAC-AR-2026-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 CAC \u2014 Annual Returns (Yearly Renewal)",
+          "method": "GET",
+          "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 CAC \u2014 Annual Returns (Yearly Renewal)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "12",
+      "section_title": "GROUP_LIFE_INSURANCE / NEW \u2014 Group Life Insurance \u2014 New Registration",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 01",
+      "compliance_type": "GROUP_LIFE_INSURANCE",
+      "mode": "NEW",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 Group Life Insurance \u2014 New Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/NEW/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/4 \u2014 Upload employee list",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/NEW/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Upload employee list"
+          }
+        },
+        {
+          "name": "Step 2/4 \u2014 Provide salary structure",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/NEW/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide salary structure"
+          }
+        },
+        {
+          "name": "Step 3/4 \u2014 Approve insurance quote",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/NEW/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Approve insurance quote"
+          }
+        },
+        {
+          "name": "Step 4/4 \u2014 Make payment",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/NEW/companies/{company_id}/steps/4/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Make payment"
+          }
+        },
+        {
+          "name": "Upload document \u2014 STAFF_SALARY_LIST",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "STAFF_SALARY_LIST",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 CAC_DETAILS",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "CAC_DETAILS",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 LIFE_INSURANCE_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/NEW/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "LIFE_INSURANCE_CERTIFICATE",
+            "output_value": "GLI-CERT-2026-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 Group Life Insurance \u2014 New Registration",
+          "method": "GET",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/NEW/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 Group Life Insurance \u2014 New Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/NEW/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "13",
+      "section_title": "GROUP_LIFE_INSURANCE / RENEWAL \u2014 Group Life Insurance \u2014 Renewal",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 11",
+      "compliance_type": "GROUP_LIFE_INSURANCE",
+      "mode": "RENEWAL",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 Group Life Insurance \u2014 Renewal",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/RENEWAL/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/4 \u2014 Update staff list",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/RENEWAL/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Update staff list"
+          }
+        },
+        {
+          "name": "Step 2/4 \u2014 Confirm salary changes",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/RENEWAL/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Confirm salary changes"
+          }
+        },
+        {
+          "name": "Step 3/4 \u2014 Approve new premium",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/RENEWAL/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Approve new premium"
+          }
+        },
+        {
+          "name": "Step 4/4 \u2014 Make payment",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/RENEWAL/companies/{company_id}/steps/4/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Make payment"
+          }
+        },
+        {
+          "name": "Upload document \u2014 UPDATED_PAYROLL",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "UPDATED_PAYROLL",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 PREVIOUS_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "PREVIOUS_CERTIFICATE",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 RENEWED_INSURANCE_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/RENEWAL/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "RENEWED_INSURANCE_CERTIFICATE",
+            "output_value": "GLI-CERT-2027-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 Group Life Insurance \u2014 Renewal",
+          "method": "GET",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/RENEWAL/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 Group Life Insurance \u2014 Renewal",
+          "method": "POST",
+          "uri": "/api/v1/workflow/GROUP_LIFE_INSURANCE/RENEWAL/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "14",
+      "section_title": "SCUML / REGISTRATION \u2014 SCUML \u2014 Registration",
+      "description": "Complete all steps and required uploads, then submit to save registry as COMPLETED.",
+      "run_after": "Section 01",
+      "compliance_type": "SCUML",
+      "mode": "REGISTRATION",
+      "endpoints": [
+        {
+          "name": "Start workflow \u2014 SCUML \u2014 Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/REGISTRATION/companies/{company_id}/start",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Step 1/5 \u2014 Confirm business type (Designated Non-Financial Business)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/REGISTRATION/companies/{company_id}/steps/1/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Confirm business type (Designated Non-Financial Business)"
+          }
+        },
+        {
+          "name": "Step 2/5 \u2014 Provide company details",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/REGISTRATION/companies/{company_id}/steps/2/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Provide company details"
+          }
+        },
+        {
+          "name": "Step 3/5 \u2014 Upload required documents",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/REGISTRATION/companies/{company_id}/steps/3/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Upload required documents"
+          }
+        },
+        {
+          "name": "Step 4/5 \u2014 Fill compliance questionnaire (transactions, clients, etc.)",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/REGISTRATION/companies/{company_id}/steps/4/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Fill compliance questionnaire (transactions, clients, etc.)"
+          }
+        },
+        {
+          "name": "Step 5/5 \u2014 Submit application",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/REGISTRATION/companies/{company_id}/steps/5/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "step_name": "Submit application"
+          }
+        },
+        {
+          "name": "Upload document \u2014 CAC_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "CAC_CERTIFICATE",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 CAC_STATUS_REPORT",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "CAC_STATUS_REPORT",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 DIRECTOR_VALID_ID",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "DIRECTOR_VALID_ID",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 UTILITY_BILL",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "UTILITY_BILL",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Upload document \u2014 TIN",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "TIN",
+            "file": "<select-file-in-postman>"
+          }
+        },
+        {
+          "name": "Add output \u2014 SCUML_CERTIFICATE",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/REGISTRATION/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "SCUML_CERTIFICATE",
+            "output_value": "SCUML-CERT-2026-00001"
+          }
+        },
+        {
+          "name": "Add output \u2014 SCUML_NUMBER",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/REGISTRATION/companies/{company_id}/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "SCUML_NUMBER",
+            "output_value": "SCUML-2026-00001"
+          }
+        },
+        {
+          "name": "Get workflow status \u2014 SCUML \u2014 Registration",
+          "method": "GET",
+          "uri": "/api/v1/workflow/SCUML/REGISTRATION/companies/{company_id}/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Submit workflow \u2014 SCUML \u2014 Registration",
+          "method": "POST",
+          "uri": "/api/v1/workflow/SCUML/REGISTRATION/companies/{company_id}/submit",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": null
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "15",
+      "section_title": "BPP_FEDERAL \u2014 BPP Federal \u2014 Contractor Registration",
+      "description": "No workflow/start/steps API. Requires FIRS, PENCOM, ITF, NSITF RENEWAL all submitted first.",
+      "run_after": "Sections 06\u201309 submitted (active TCC + renewals). Blocked until: FIRS, PENCOM, ITF, NSITF",
+      "compliance_type": "BPP_FEDERAL",
+      "mode": null,
+      "endpoints": [
+        {
+          "name": "Get BPP registry \u2014 BPP Federal \u2014 Contractor Registration",
+          "method": "GET",
+          "uri": "/api/v1/bpp/federal/companies/{company_id}/registry",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Upsert BPP registry PENDING \u2014 BPP Federal \u2014 Contractor Registration",
+          "method": "PUT",
+          "uri": "/api/v1/bpp/federal/companies/{company_id}/registry",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "status": "PENDING",
+            "expiry_date": null
+          }
+        },
+        {
+          "name": "Upload BPP document \u2014 BPP Federal \u2014 Contractor Registration",
+          "method": "POST",
+          "uri": "/api/v1/bpp/federal/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "APPLICATION_FORM",
+            "file": "<select-file-in-postman>"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "16",
+      "section_title": "BPP_STATE \u2014 State BPP \u2014 State Procurement Registration",
+      "description": "No workflow/start/steps API. Requires FIRS, PENCOM, ITF, NSITF RENEWAL all submitted first.",
+      "run_after": "Sections 06\u201309 submitted (active TCC + renewals). Blocked until: FIRS, PENCOM, ITF, NSITF",
+      "compliance_type": "BPP_STATE",
+      "mode": null,
+      "endpoints": [
+        {
+          "name": "Get BPP registry \u2014 State BPP \u2014 State Procurement Registration",
+          "method": "GET",
+          "uri": "/api/v1/bpp/state/companies/{company_id}/registry",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Upsert BPP registry PENDING \u2014 State BPP \u2014 State Procurement Registration",
+          "method": "PUT",
+          "uri": "/api/v1/bpp/state/companies/{company_id}/registry",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "status": "PENDING",
+            "expiry_date": null
+          }
+        },
+        {
+          "name": "Upload BPP document \u2014 State BPP \u2014 State Procurement Registration",
+          "method": "POST",
+          "uri": "/api/v1/bpp/state/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "VENDOR_FORM",
+            "file": "<select-file-in-postman>"
+          }
+        }
+      ]
+    },
+    {
+      "section_id": "99",
+      "section_title": "Optional \u2014 read-only / company maintenance",
+      "description": "Not required to save compliance; useful for debugging.",
+      "run_after": "Any time after Section 00",
+      "endpoints": [
+        {
+          "name": "List CAC Companies",
+          "method": "GET",
+          "uri": "/api/v1/cac/companies",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Get CAC Company By ID",
+          "method": "GET",
+          "uri": "/api/v1/cac/companies/{company_id}",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Patch CAC Company",
+          "method": "PATCH",
+          "uri": "/api/v1/cac/companies/{company_id}",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "name": "Acme Nigeria Ltd Updated",
+            "address": "Ikoyi, Lagos"
+          }
+        },
+        {
+          "name": "Get CAC Registry",
+          "method": "GET",
+          "uri": "/api/v1/cac/companies/{company_id}/registry",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Upsert CAC Registry (shortcut \u2014 skips workflow steps)",
+          "method": "PUT",
+          "uri": "/api/v1/cac/companies/{company_id}/registry",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "status": "COMPLETED",
+            "expiry_date": "2027-12-31"
+          }
+        },
+        {
+          "name": "Upload CAC Document (direct \u2014 not workflow)",
+          "method": "POST",
+          "uri": "/api/v1/cac/companies/{company_id}/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null,
+          "multipart_form_data": {
+            "doc_type": "CAC_CERTIFICATE",
+            "file": "<select-file-in-postman>"
+          }
+        }
+      ]
+    }
+  ]
+}

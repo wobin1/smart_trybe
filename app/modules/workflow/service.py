@@ -10,57 +10,7 @@ from app.domain.enums import ComplianceMode, ComplianceStatus, ComplianceType
 from app.modules.cac.repository import fetch_company_for_user
 from app.modules.compliance import repository as compliance_repo
 from app.modules.compliance.engine import ComplianceEngine
-
-STEP_COUNTS: dict[tuple[ComplianceType, ComplianceMode], int] = {
-    (ComplianceType.CAC, ComplianceMode.NEW): 8,
-    (ComplianceType.CAC, ComplianceMode.RENEWAL): 5,
-    (ComplianceType.FIRS, ComplianceMode.NEW): 5,
-    (ComplianceType.FIRS, ComplianceMode.RENEWAL): 5,
-    (ComplianceType.ITF, ComplianceMode.NEW): 4,
-    (ComplianceType.ITF, ComplianceMode.RENEWAL): 4,
-    (ComplianceType.NSITF, ComplianceMode.NEW): 4,
-    (ComplianceType.NSITF, ComplianceMode.RENEWAL): 3,
-    (ComplianceType.PENCOM, ComplianceMode.NEW): 4,
-    (ComplianceType.PENCOM, ComplianceMode.RENEWAL): 3,
-    (ComplianceType.GROUP_LIFE_INSURANCE, ComplianceMode.NEW): 4,
-    (ComplianceType.GROUP_LIFE_INSURANCE, ComplianceMode.RENEWAL): 4,
-    (ComplianceType.ACCOUNT_AUDITING, ComplianceMode.PROCESS): 3,
-    (ComplianceType.SCUML, ComplianceMode.REGISTRATION): 5,
-}
-
-REQUIRED_DOCS: dict[tuple[ComplianceType, ComplianceMode], set[str]] = {
-    (ComplianceType.CAC, ComplianceMode.NEW): {
-        "VALID_ID",
-        "PASSPORT_PHOTO",
-        "ADDRESS_PROOF",
-        "SIGNATURE",
-    },
-    (ComplianceType.CAC, ComplianceMode.RENEWAL): {"FINANCIAL_SUMMARY"},
-    (ComplianceType.FIRS, ComplianceMode.NEW): {"CAC_CERTIFICATE", "CAC_STATUS_REPORT", "DIRECTOR_DETAILS"},
-    (ComplianceType.FIRS, ComplianceMode.RENEWAL): {"AUDITED_FINANCIAL_STATEMENTS"},
-    (ComplianceType.ITF, ComplianceMode.NEW): {"CAC_CERTIFICATE", "EMPLOYEE_LIST", "PAYROLL_INFO"},
-    (ComplianceType.ITF, ComplianceMode.RENEWAL): {"PAYROLL_REPORT", "PAYMENT_PROOF"},
-    (ComplianceType.NSITF, ComplianceMode.NEW): {"CAC_CERTIFICATE", "STAFF_LIST", "PAYROLL_SCHEDULE"},
-    (ComplianceType.NSITF, ComplianceMode.RENEWAL): {"UPDATED_PAYROLL", "PAYMENT_RECEIPT"},
-    (ComplianceType.PENCOM, ComplianceMode.NEW): {"STAFF_LIST", "EMPLOYMENT_DETAILS"},
-    (ComplianceType.PENCOM, ComplianceMode.RENEWAL): {"PENSION_REMITTANCE_RECORDS", "EMPLOYEE_PENSION_DETAILS"},
-    (ComplianceType.GROUP_LIFE_INSURANCE, ComplianceMode.NEW): {"STAFF_SALARY_LIST", "CAC_DETAILS"},
-    (ComplianceType.GROUP_LIFE_INSURANCE, ComplianceMode.RENEWAL): {
-        "UPDATED_PAYROLL",
-        "PREVIOUS_CERTIFICATE",
-    },
-    (ComplianceType.ACCOUNT_AUDITING, ComplianceMode.PROCESS): {
-        "BANK_STATEMENTS",
-        "TRANSACTION_RECORDS",
-    },
-    (ComplianceType.SCUML, ComplianceMode.REGISTRATION): {
-        "CAC_CERTIFICATE",
-        "CAC_STATUS_REPORT",
-        "DIRECTOR_VALID_ID",
-        "UTILITY_BILL",
-        "TIN",
-    },
-}
+from app.modules.workflow.catalog import REQUIRED_DOCS, WORKFLOW_STEP_DEFINITIONS
 
 
 def _ensure_company(row: asyncpg.Record | None) -> asyncpg.Record:
@@ -79,8 +29,8 @@ class WorkflowService:
     def __init__(self, pool: asyncpg.Pool):
         self._pool = pool
 
-    def _total_steps(self, compliance_type: ComplianceType, mode: ComplianceMode) -> int:
-        return STEP_COUNTS.get((compliance_type, mode), 1)
+    def _steps_for(self, compliance_type: ComplianceType, mode: ComplianceMode) -> list[str]:
+        return WORKFLOW_STEP_DEFINITIONS.get((compliance_type, mode), ["Step 1"])
 
     async def start(
         self,
@@ -93,12 +43,25 @@ class WorkflowService:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 _ensure_company(await fetch_company_for_user(conn, company_id, user_id))
+                template = await compliance_repo.fetch_workflow_template(
+                    conn, compliance_type.value, mode.value
+                )
+                if template is None:
+                    steps = self._steps_for(compliance_type, mode)
+                    template = await compliance_repo.upsert_workflow_template(
+                        conn,
+                        compliance_type.value,
+                        mode.value,
+                        len(steps),
+                    )
+                    assert template is not None
+                    await compliance_repo.replace_template_steps(conn, template["id"], steps)
                 row = await compliance_repo.upsert_workflow(
                     conn,
                     company_id,
                     compliance_type.value,
                     mode.value,
-                    self._total_steps(compliance_type, mode),
+                    int(template["total_steps"]),
                 )
                 await compliance_repo.mark_workflow_status(
                     conn, row["id"], ComplianceStatus.PENDING.value, 0
@@ -129,7 +92,21 @@ class WorkflowService:
                 )
                 if step_number < 1 or step_number > wf["total_steps"]:
                     raise HTTPException(status_code=400, detail="Invalid step number")
-                await compliance_repo.upsert_step_completion(conn, wf["id"], step_number, step_name)
+                template_step = await compliance_repo.fetch_template_step(
+                    conn, compliance_type.value, mode.value, step_number
+                )
+                if template_step is None:
+                    raise HTTPException(status_code=400, detail="Workflow template step not configured")
+                expected = str(template_step["step_name"])
+                if step_name.strip() != expected:
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "message": "Step name does not match workflow template",
+                            "expected_step_name": expected,
+                        },
+                    )
+                await compliance_repo.upsert_step_completion(conn, wf["id"], step_number, expected)
                 completed = await compliance_repo.count_completed_steps(conn, wf["id"])
                 current_step = min(completed, wf["total_steps"])
                 await compliance_repo.mark_workflow_status(
@@ -201,7 +178,9 @@ class WorkflowService:
             wf = _ensure_workflow(
                 await compliance_repo.fetch_workflow(conn, company_id, compliance_type.value, mode.value)
             )
-            steps = await compliance_repo.list_workflow_steps(conn, wf["id"])
+            steps = await compliance_repo.list_template_steps_with_progress(
+                conn, wf["id"], compliance_type.value, mode.value
+            )
             docs = await compliance_repo.list_document_types(conn, company_id, compliance_type.value)
             outputs = await compliance_repo.list_workflow_outputs(conn, wf["id"])
             return {
@@ -233,6 +212,51 @@ class WorkflowService:
                         "issued_at": o["issued_at"].isoformat(),
                     }
                     for o in outputs
+                ],
+            }
+
+    async def list_templates(self) -> list[dict]:
+        async with self._pool.acquire() as conn:
+            templates = await compliance_repo.list_workflow_templates(conn)
+            payload: list[dict] = []
+            for t in templates:
+                steps = await compliance_repo.list_template_steps(conn, t["id"])
+                payload.append(
+                    {
+                        "id": str(t["id"]),
+                        "compliance_type": t["compliance_type"],
+                        "mode": t["mode"],
+                        "total_steps": t["total_steps"],
+                        "steps": [
+                            {
+                                "step_number": s["step_number"],
+                                "step_name": s["step_name"],
+                            }
+                            for s in steps
+                        ],
+                    }
+                )
+            return payload
+
+    async def get_template(self, compliance_type: ComplianceType, mode: ComplianceMode) -> dict:
+        async with self._pool.acquire() as conn:
+            template = await compliance_repo.fetch_workflow_template(
+                conn, compliance_type.value, mode.value
+            )
+            if template is None:
+                raise HTTPException(status_code=404, detail="Workflow template not found")
+            steps = await compliance_repo.list_template_steps(conn, template["id"])
+            return {
+                "id": str(template["id"]),
+                "compliance_type": template["compliance_type"],
+                "mode": template["mode"],
+                "total_steps": template["total_steps"],
+                "steps": [
+                    {
+                        "step_number": s["step_number"],
+                        "step_name": s["step_name"],
+                    }
+                    for s in steps
                 ],
             }
 

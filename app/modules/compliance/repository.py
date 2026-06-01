@@ -129,6 +129,116 @@ async def upsert_workflow(
     )
 
 
+async def upsert_workflow_template(
+    conn: asyncpg.Connection,
+    compliance_type: str,
+    mode: str,
+    total_steps: int,
+) -> asyncpg.Record:
+    return await conn.fetchrow(
+        """
+        INSERT INTO workflow_templates (compliance_type, mode, total_steps, updated_at)
+        VALUES ($1::compliance_type, $2::compliance_mode, $3, NOW())
+        ON CONFLICT (compliance_type, mode)
+        DO UPDATE SET
+            total_steps = EXCLUDED.total_steps,
+            is_active = TRUE,
+            updated_at = NOW()
+        RETURNING id, compliance_type::text AS compliance_type, mode::text AS mode, total_steps
+        """,
+        compliance_type,
+        mode,
+        total_steps,
+    )
+
+
+async def replace_template_steps(
+    conn: asyncpg.Connection,
+    template_id: UUID,
+    steps: list[str],
+) -> None:
+    await conn.execute(
+        """
+        DELETE FROM workflow_template_steps
+        WHERE template_id = $1
+        """,
+        template_id,
+    )
+    for idx, step_name in enumerate(steps, start=1):
+        await conn.execute(
+            """
+            INSERT INTO workflow_template_steps (template_id, step_number, step_name)
+            VALUES ($1, $2, $3)
+            """,
+            template_id,
+            idx,
+            step_name,
+        )
+
+
+async def fetch_workflow_template(
+    conn: asyncpg.Connection,
+    compliance_type: str,
+    mode: str,
+) -> asyncpg.Record | None:
+    return await conn.fetchrow(
+        """
+        SELECT id, compliance_type::text AS compliance_type, mode::text AS mode, total_steps
+        FROM workflow_templates
+        WHERE compliance_type = $1::compliance_type
+          AND mode = $2::compliance_mode
+          AND is_active = TRUE
+        """,
+        compliance_type,
+        mode,
+    )
+
+
+async def fetch_template_step(
+    conn: asyncpg.Connection,
+    compliance_type: str,
+    mode: str,
+    step_number: int,
+) -> asyncpg.Record | None:
+    return await conn.fetchrow(
+        """
+        SELECT s.step_number, s.step_name
+        FROM workflow_templates t
+        JOIN workflow_template_steps s ON s.template_id = t.id
+        WHERE t.compliance_type = $1::compliance_type
+          AND t.mode = $2::compliance_mode
+          AND t.is_active = TRUE
+          AND s.step_number = $3
+        """,
+        compliance_type,
+        mode,
+        step_number,
+    )
+
+
+async def list_workflow_templates(conn: asyncpg.Connection) -> list[asyncpg.Record]:
+    return await conn.fetch(
+        """
+        SELECT id, compliance_type::text AS compliance_type, mode::text AS mode, total_steps
+        FROM workflow_templates
+        WHERE is_active = TRUE
+        ORDER BY compliance_type::text ASC, mode::text ASC
+        """
+    )
+
+
+async def list_template_steps(conn: asyncpg.Connection, template_id: UUID) -> list[asyncpg.Record]:
+    return await conn.fetch(
+        """
+        SELECT step_number, step_name
+        FROM workflow_template_steps
+        WHERE template_id = $1
+        ORDER BY step_number ASC
+        """,
+        template_id,
+    )
+
+
 async def fetch_workflow(
     conn: asyncpg.Connection,
     company_id: UUID,
@@ -199,6 +309,35 @@ async def list_workflow_steps(conn: asyncpg.Connection, workflow_id: UUID) -> li
         ORDER BY step_number ASC
         """,
         workflow_id,
+    )
+
+
+async def list_template_steps_with_progress(
+    conn: asyncpg.Connection,
+    workflow_id: UUID,
+    compliance_type: str,
+    mode: str,
+) -> list[asyncpg.Record]:
+    return await conn.fetch(
+        """
+        SELECT
+            s.step_number,
+            s.step_name,
+            COALESCE(p.is_completed, FALSE) AS is_completed,
+            p.completed_at
+        FROM workflow_templates t
+        JOIN workflow_template_steps s ON s.template_id = t.id
+        LEFT JOIN compliance_step_progress p
+          ON p.workflow_id = $1
+         AND p.step_number = s.step_number
+        WHERE t.compliance_type = $2::compliance_type
+          AND t.mode = $3::compliance_mode
+          AND t.is_active = TRUE
+        ORDER BY s.step_number ASC
+        """,
+        workflow_id,
+        compliance_type,
+        mode,
     )
 
 

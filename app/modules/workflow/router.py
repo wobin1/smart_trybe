@@ -29,6 +29,24 @@ def get_workflow_service(pool: asyncpg.Pool = Depends(db_pool)) -> WorkflowServi
     return WorkflowService(pool)
 
 
+@router.get("/templates")
+async def list_workflow_templates(
+    user: CurrentUser = Depends(get_current_user),
+    svc: WorkflowService = Depends(get_workflow_service),
+):
+    return await svc.list_templates()
+
+
+@router.get("/templates/{compliance_type}/{mode}")
+async def get_workflow_template(
+    compliance_type: ComplianceType,
+    mode: ComplianceMode,
+    user: CurrentUser = Depends(get_current_user),
+    svc: WorkflowService = Depends(get_workflow_service),
+):
+    return await svc.get_template(compliance_type, mode)
+
+
 @router.post("/{compliance_type}/{mode}/companies/{company_id}/start")
 async def start_workflow(
     compliance_type: ComplianceType,

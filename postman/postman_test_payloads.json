@@ -8,6 +8,24 @@
   ],
   "endpoints": [
     {
+      "name": "List Workflow Templates",
+      "method": "GET",
+      "uri": "/api/v1/workflow/templates",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Get Workflow Template By Type+Mode",
+      "method": "GET",
+      "uri": "/api/v1/workflow/templates/FIRS/RENEWAL",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
       "name": "Start FIRS Renewal Workflow",
       "method": "POST",
       "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/start",

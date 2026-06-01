@@ -102,6 +102,27 @@ CREATE TABLE IF NOT EXISTS compliance_workflows (
 CREATE INDEX IF NOT EXISTS idx_workflows_company_type_mode
     ON compliance_workflows (company_id, compliance_type, mode);
 
+CREATE TABLE IF NOT EXISTS workflow_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    compliance_type compliance_type NOT NULL,
+    mode compliance_mode NOT NULL,
+    total_steps INT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (compliance_type, mode)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_template_steps (
+    template_id UUID NOT NULL REFERENCES workflow_templates (id) ON DELETE CASCADE,
+    step_number INT NOT NULL,
+    step_name TEXT NOT NULL,
+    PRIMARY KEY (template_id, step_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_template_steps_template
+    ON workflow_template_steps (template_id);
+
 CREATE TABLE IF NOT EXISTS compliance_step_progress (
     workflow_id UUID NOT NULL REFERENCES compliance_workflows (id) ON DELETE CASCADE,
     step_number INT NOT NULL,
