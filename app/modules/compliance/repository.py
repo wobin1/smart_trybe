@@ -89,6 +89,54 @@ async def document_exists(
     return row is not None
 
 
+async def fetch_document_for_company(
+    conn: asyncpg.Connection,
+    document_id: UUID,
+    company_id: UUID,
+) -> asyncpg.Record | None:
+    return await conn.fetchrow(
+        """
+        SELECT id, company_id, compliance_type::text AS compliance_type,
+               doc_type, s3_url, uploaded_at
+        FROM documents
+        WHERE id = $1 AND company_id = $2
+        """,
+        document_id,
+        company_id,
+    )
+
+
+async def list_documents_for_company(
+    conn: asyncpg.Connection,
+    company_id: UUID,
+    *,
+    compliance_type: str | None = None,
+    doc_type: str | None = None,
+) -> list[asyncpg.Record]:
+    clauses = ["company_id = $1"]
+    args: list[object] = [company_id]
+    idx = 2
+    if compliance_type is not None:
+        clauses.append(f"compliance_type = ${idx}::compliance_type")
+        args.append(compliance_type)
+        idx += 1
+    if doc_type is not None:
+        clauses.append(f"doc_type = ${idx}")
+        args.append(doc_type)
+        idx += 1
+    where = " AND ".join(clauses)
+    return await conn.fetch(
+        f"""
+        SELECT id, company_id, compliance_type::text AS compliance_type,
+               doc_type, s3_url, uploaded_at
+        FROM documents
+        WHERE {where}
+        ORDER BY uploaded_at DESC
+        """,
+        *args,
+    )
+
+
 async def list_document_types(
     conn: asyncpg.Connection,
     company_id: UUID,
@@ -236,6 +284,38 @@ async def list_template_steps(conn: asyncpg.Connection, template_id: UUID) -> li
         ORDER BY step_number ASC
         """,
         template_id,
+    )
+
+
+async def list_workflows_for_company(
+    conn: asyncpg.Connection,
+    company_id: UUID,
+) -> list[asyncpg.Record]:
+    return await conn.fetch(
+        """
+        SELECT id, company_id, compliance_type::text AS compliance_type, mode::text AS mode,
+               status::text AS status, current_step, total_steps, last_updated
+        FROM compliance_workflows
+        WHERE company_id = $1
+        ORDER BY compliance_type::text ASC, mode::text ASC
+        """,
+        company_id,
+    )
+
+
+async def list_registry_for_company(
+    conn: asyncpg.Connection,
+    company_id: UUID,
+) -> list[asyncpg.Record]:
+    return await conn.fetch(
+        """
+        SELECT company_id, compliance_type::text AS compliance_type,
+               status::text AS status, expiry_date, last_updated
+        FROM compliance_registry
+        WHERE company_id = $1
+        ORDER BY compliance_type::text ASC
+        """,
+        company_id,
     )
 
 

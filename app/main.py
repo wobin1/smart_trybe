@@ -9,6 +9,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.bpp_federal.router import router as bpp_federal_router
 from app.modules.bpp_state.router import router as bpp_state_router
 from app.modules.cac.router import router as cac_router
+from app.modules.documents.router import router as documents_router
 from app.modules.workflow.router import router as workflow_router
 
 
@@ -33,6 +34,7 @@ app.include_router(cac_router, prefix="/api/v1")
 app.include_router(bpp_federal_router, prefix="/api/v1")
 app.include_router(bpp_state_router, prefix="/api/v1")
 app.include_router(workflow_router, prefix="/api/v1")
+app.include_router(documents_router, prefix="/api/v1")
 
 
 def _ensure_upload_dir() -> None:

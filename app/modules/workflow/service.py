@@ -13,6 +13,10 @@ from app.modules.compliance.engine import ComplianceEngine
 from app.modules.workflow.catalog import REQUIRED_DOCS, WORKFLOW_STEP_DEFINITIONS
 
 
+def _workflow_key(compliance_type: str, mode: str) -> tuple[str, str]:
+    return compliance_type, mode
+
+
 def _ensure_company(row: asyncpg.Record | None) -> asyncpg.Record:
     if row is None:
         raise HTTPException(status_code=404, detail="Company not found")
@@ -164,6 +168,91 @@ class WorkflowService:
                 return await compliance_repo.insert_workflow_output(
                     conn, wf["id"], output_type, output_value
                 )
+
+    async def get_company_progress(self, *, company_id: UUID, user_id: UUID) -> dict:
+        async with self._pool.acquire() as conn:
+            _ensure_company(await fetch_company_for_user(conn, company_id, user_id))
+
+            templates = await compliance_repo.list_workflow_templates(conn)
+            instances = {
+                _workflow_key(w["compliance_type"], w["mode"]): w
+                for w in await compliance_repo.list_workflows_for_company(conn, company_id)
+            }
+            registry_by_type = {
+                r["compliance_type"]: r for r in await compliance_repo.list_registry_for_company(conn, company_id)
+            }
+
+            workflows: list[dict] = []
+            for template in templates:
+                ct = template["compliance_type"]
+                mode = template["mode"]
+                key = _workflow_key(ct, mode)
+                instance = instances.get(key)
+                required_docs = sorted(REQUIRED_DOCS.get((ComplianceType(ct), ComplianceMode(mode)), set()))
+                uploaded_docs = await compliance_repo.list_document_types(conn, company_id, ct)
+
+                if instance is None:
+                    template_steps = await compliance_repo.list_template_steps(conn, template["id"])
+                    steps = [
+                        {
+                            "step_number": s["step_number"],
+                            "step_name": s["step_name"],
+                            "is_completed": False,
+                            "completed_at": None,
+                        }
+                        for s in template_steps
+                    ]
+                    steps_completed = 0
+                    workflow_status = ComplianceStatus.NOT_STARTED.value
+                    workflow_id = None
+                    current_step = 0
+                else:
+                    workflow_id = instance["id"]
+                    steps = [
+                        {
+                            "step_number": s["step_number"],
+                            "step_name": s["step_name"],
+                            "is_completed": s["is_completed"],
+                            "completed_at": s["completed_at"].isoformat() if s["completed_at"] else None,
+                        }
+                        for s in await compliance_repo.list_template_steps_with_progress(
+                            conn, workflow_id, ct, mode
+                        )
+                    ]
+                    steps_completed = sum(1 for s in steps if s["is_completed"])
+                    workflow_status = instance["status"]
+                    current_step = instance["current_step"]
+
+                total_steps = int(template["total_steps"])
+                missing_docs = [d for d in required_docs if d not in uploaded_docs]
+                reg = registry_by_type.get(ct)
+
+                workflows.append(
+                    {
+                        "compliance_type": ct,
+                        "mode": mode,
+                        "started": instance is not None,
+                        "workflow_id": str(workflow_id) if workflow_id else None,
+                        "status": workflow_status,
+                        "current_step": current_step,
+                        "total_steps": total_steps,
+                        "steps_completed": steps_completed,
+                        "progress_percent": round((steps_completed / total_steps) * 100) if total_steps else 0,
+                        "steps": steps,
+                        "required_documents": required_docs,
+                        "documents_uploaded": uploaded_docs,
+                        "missing_documents": missing_docs,
+                        "registry": {
+                            "status": reg["status"] if reg else ComplianceStatus.NOT_STARTED.value,
+                            "expiry_date": reg["expiry_date"].isoformat() if reg and reg["expiry_date"] else None,
+                        },
+                    }
+                )
+
+            return {
+                "company_id": str(company_id),
+                "workflows": workflows,
+            }
 
     async def get_status(
         self,

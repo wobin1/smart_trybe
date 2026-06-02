@@ -26,6 +26,46 @@
       "json_payload": null
     },
     {
+      "name": "List Company Documents (all uploads)",
+      "method": "GET",
+      "uri": "/api/v1/companies/{company_id}/documents",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "List Company Documents By doc_type",
+      "method": "GET",
+      "uri": "/api/v1/companies/{company_id}/documents?doc_type=CAC_CERTIFICATE",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Reuse Document For Another Compliance",
+      "method": "POST",
+      "uri": "/api/v1/companies/{company_id}/documents/reuse",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "document_id": "<existing-document-uuid>",
+        "compliance_type": "FIRS"
+      }
+    },
+    {
+      "name": "Get Company Workflow Progress (all workflows)",
+      "method": "GET",
+      "uri": "/api/v1/workflow/companies/{company_id}/progress",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
       "name": "Start FIRS Renewal Workflow",
       "method": "POST",
       "uri": "/api/v1/workflow/FIRS/RENEWAL/companies/{company_id}/start",

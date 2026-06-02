@@ -101,3 +101,53 @@ def test_cac_company_requires_auth(client: TestClient):
 
     empty_patch = client.patch(f"/api/v1/cac/companies/{cid}", headers=headers, json={})
     assert empty_patch.status_code == 400
+
+    progress = client.get(f"/api/v1/workflow/companies/{cid}/progress", headers=headers)
+    assert progress.status_code == 200
+    body = progress.json()
+    assert body["company_id"] == cid
+    assert len(body["workflows"]) > 0
+
+    cac_new = next(w for w in body["workflows"] if w["compliance_type"] == "CAC" and w["mode"] == "NEW")
+    assert cac_new["started"] is False
+    assert cac_new["status"] == "NOT_STARTED"
+
+    start = client.post(f"/api/v1/workflow/CAC/NEW/companies/{cid}/start", headers=headers)
+    assert start.status_code == 200
+
+    progress2 = client.get(f"/api/v1/workflow/companies/{cid}/progress", headers=headers)
+    cac_new2 = next(
+        w for w in progress2.json()["workflows"] if w["compliance_type"] == "CAC" and w["mode"] == "NEW"
+    )
+    assert cac_new2["started"] is True
+    assert cac_new2["status"] == "PENDING"
+    assert cac_new2["total_steps"] == 8
+
+    # Upload under CAC, list library, reuse for FIRS workflow
+    upload = client.post(
+        f"/api/v1/cac/companies/{cid}/documents",
+        headers=headers,
+        files={"file": ("cert.pdf", b"test certificate content", "application/pdf")},
+        data={"doc_type": "CAC_CERTIFICATE"},
+    )
+    assert upload.status_code == 201
+    doc_id = upload.json()["id"]
+
+    library = client.get(f"/api/v1/companies/{cid}/documents", headers=headers)
+    assert library.status_code == 200
+    assert any(d["id"] == doc_id for d in library.json()["documents"])
+
+    reuse = client.post(
+        f"/api/v1/companies/{cid}/documents/reuse",
+        headers=headers,
+        json={"document_id": doc_id, "compliance_type": "FIRS"},
+    )
+    assert reuse.status_code == 201
+    assert reuse.json()["reused"] is True
+    assert reuse.json()["doc_type"] == "CAC_CERTIFICATE"
+
+    firs_docs = client.get(
+        f"/api/v1/companies/{cid}/documents?compliance_type=FIRS",
+        headers=headers,
+    )
+    assert any(d["doc_type"] == "CAC_CERTIFICATE" for d in firs_docs.json()["documents"])
