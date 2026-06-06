@@ -31,6 +31,7 @@ class UserMe(BaseModel):
     id: UUID
     email: str
     full_name: str | None
+    is_admin: bool
     created_at: str
 
 
@@ -58,5 +59,6 @@ async def me(user: CurrentUser = Depends(get_current_user)):
         id=r["id"],
         email=r["email"],
         full_name=r["full_name"],
+        is_admin=bool(r.get("is_admin")),
         created_at=r["created_at"].isoformat(),
     )

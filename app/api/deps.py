@@ -29,3 +29,11 @@ async def get_current_user(
     svc = AuthService(pool)
     row = await svc.get_user_by_token(credentials.credentials)
     return CurrentUser(id=row["id"], record=row)
+
+
+async def get_admin_user(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    if not user.record.get("is_admin"):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user

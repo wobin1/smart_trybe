@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     full_name TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -129,8 +130,14 @@ CREATE TABLE IF NOT EXISTS compliance_step_progress (
     step_name TEXT NOT NULL,
     is_completed BOOLEAN NOT NULL DEFAULT FALSE,
     completed_at TIMESTAMPTZ,
+    step_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (workflow_id, step_number)
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE compliance_step_progress ADD COLUMN IF NOT EXISTS step_data JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE compliance_step_progress ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE TABLE IF NOT EXISTS compliance_outputs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

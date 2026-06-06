@@ -80,6 +80,31 @@ async def update_company_for_user(
     return await conn.fetchrow(sql, *values)
 
 
+async def list_all_companies(conn: asyncpg.Connection) -> list[asyncpg.Record]:
+    return await conn.fetch(
+        """
+        SELECT c.id, c.name, c.rc_number, c.tin, c.address, c.user_id, c.created_at,
+               u.email AS owner_email, u.full_name AS owner_name
+        FROM companies c
+        JOIN users u ON u.id = c.user_id
+        ORDER BY c.created_at DESC
+        """
+    )
+
+
+async def fetch_company_by_id(conn: asyncpg.Connection, company_id: UUID) -> asyncpg.Record | None:
+    return await conn.fetchrow(
+        """
+        SELECT c.id, c.name, c.rc_number, c.tin, c.address, c.user_id, c.created_at,
+               u.email AS owner_email, u.full_name AS owner_name
+        FROM companies c
+        JOIN users u ON u.id = c.user_id
+        WHERE c.id = $1
+        """,
+        company_id,
+    )
+
+
 async def list_companies_for_user(conn: asyncpg.Connection, user_id: UUID) -> list[asyncpg.Record]:
     return await conn.fetch(
         """

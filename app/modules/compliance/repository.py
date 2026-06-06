@@ -1,4 +1,6 @@
+import json
 from datetime import date
+from typing import Any
 from uuid import UUID
 
 import asyncpg
@@ -358,25 +360,132 @@ async def mark_workflow_status(
     )
 
 
+async def fetch_step_progress(
+    conn: asyncpg.Connection,
+    workflow_id: UUID,
+    step_number: int,
+) -> asyncpg.Record | None:
+    return await conn.fetchrow(
+        """
+        SELECT step_number, step_name, is_completed, completed_at, step_data, updated_at
+        FROM compliance_step_progress
+        WHERE workflow_id = $1 AND step_number = $2
+        """,
+        workflow_id,
+        step_number,
+    )
+
+
+async def update_step_data_only(
+    conn: asyncpg.Connection,
+    workflow_id: UUID,
+    step_number: int,
+    step_name: str,
+    step_data: dict[str, Any],
+) -> None:
+    existing = await fetch_step_progress(conn, workflow_id, step_number)
+    merged: dict[str, Any] = {}
+    if existing and existing["step_data"]:
+        raw = existing["step_data"]
+        merged = dict(raw) if isinstance(raw, dict) else {}
+    merged.update(step_data)
+    payload = json.dumps(merged)
+    await conn.execute(
+        """
+        INSERT INTO compliance_step_progress (
+            workflow_id, step_number, step_name, is_completed, step_data, updated_at
+        )
+        VALUES ($1, $2, $3, FALSE, $4::jsonb, NOW())
+        ON CONFLICT (workflow_id, step_number)
+        DO UPDATE SET
+            step_name = EXCLUDED.step_name,
+            step_data = EXCLUDED.step_data,
+            updated_at = NOW()
+        """,
+        workflow_id,
+        step_number,
+        step_name,
+        payload,
+    )
+
+
+async def upsert_step_draft(
+    conn: asyncpg.Connection,
+    workflow_id: UUID,
+    step_number: int,
+    step_name: str,
+    step_data: dict[str, Any],
+) -> None:
+    existing = await fetch_step_progress(conn, workflow_id, step_number)
+    merged: dict[str, Any] = {}
+    if existing and existing["step_data"]:
+        raw = existing["step_data"]
+        merged = dict(raw) if isinstance(raw, dict) else {}
+    merged.update(step_data)
+    payload = json.dumps(merged)
+    await conn.execute(
+        """
+        INSERT INTO compliance_step_progress (
+            workflow_id, step_number, step_name, is_completed, step_data, updated_at
+        )
+        VALUES ($1, $2, $3, FALSE, $4::jsonb, NOW())
+        ON CONFLICT (workflow_id, step_number)
+        DO UPDATE SET
+            step_name = EXCLUDED.step_name,
+            step_data = EXCLUDED.step_data,
+            updated_at = NOW(),
+            is_completed = FALSE,
+            completed_at = NULL
+        """,
+        workflow_id,
+        step_number,
+        step_name,
+        payload,
+    )
+
+
 async def upsert_step_completion(
     conn: asyncpg.Connection,
     workflow_id: UUID,
     step_number: int,
     step_name: str,
+    step_data: dict[str, Any] | None = None,
 ) -> None:
+    existing = await conn.fetchrow(
+        """
+        SELECT step_data
+        FROM compliance_step_progress
+        WHERE workflow_id = $1 AND step_number = $2
+        """,
+        workflow_id,
+        step_number,
+    )
+    merged: dict[str, Any] = {}
+    if existing and existing["step_data"]:
+        raw = existing["step_data"]
+        merged = dict(raw) if isinstance(raw, dict) else {}
+    if step_data:
+        merged.update(step_data)
+    payload = json.dumps(merged)
+
     await conn.execute(
         """
-        INSERT INTO compliance_step_progress (workflow_id, step_number, step_name, is_completed, completed_at)
-        VALUES ($1, $2, $3, TRUE, NOW())
+        INSERT INTO compliance_step_progress (
+            workflow_id, step_number, step_name, is_completed, completed_at, step_data, updated_at
+        )
+        VALUES ($1, $2, $3, TRUE, NOW(), $4::jsonb, NOW())
         ON CONFLICT (workflow_id, step_number)
         DO UPDATE SET
             step_name = EXCLUDED.step_name,
             is_completed = TRUE,
-            completed_at = NOW()
+            completed_at = NOW(),
+            step_data = EXCLUDED.step_data,
+            updated_at = NOW()
         """,
         workflow_id,
         step_number,
         step_name,
+        payload,
     )
 
 
@@ -404,7 +513,9 @@ async def list_template_steps_with_progress(
             s.step_number,
             s.step_name,
             COALESCE(p.is_completed, FALSE) AS is_completed,
-            p.completed_at
+            p.completed_at,
+            COALESCE(p.step_data, '{}'::jsonb) AS step_data,
+            p.updated_at
         FROM workflow_templates t
         JOIN workflow_template_steps s ON s.template_id = t.id
         LEFT JOIN compliance_step_progress p

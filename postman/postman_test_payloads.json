@@ -4,7 +4,8 @@
   "notes": [
     "All /api/v1/cac/* and /api/v1/bpp/* endpoints require Authorization header.",
     "For multipart endpoints, do not send JSON body; use form-data with keys exactly as documented.",
-    "Use register/login response access_token for subsequent requests."
+    "Use register/login response access_token for subsequent requests.",
+    "CAC workflow tests: run Create CAC Company first, then CAC NEW or CAC RENEWAL blocks in order."
   ],
   "endpoints": [
     {
@@ -83,7 +84,8 @@
         "Content-Type": "application/json"
       },
       "json_payload": {
-        "step_name": "Provide yearly financial records"
+        "step_name": "Provide yearly financial records",
+        "data": {}
       }
     },
     {
@@ -187,6 +189,578 @@
         "rc_number": "RC-123456",
         "tin": "12345678-0001",
         "address": "Victoria Island, Lagos"
+      }
+    },
+    {
+      "name": "Get CAC NEW Template",
+      "method": "GET",
+      "uri": "/api/v1/workflow/templates/CAC/NEW",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Start CAC NEW Workflow",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/start",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "CAC NEW \u2014 Draft Step 1",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/1/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "proposed_name_1": "Acme Alpha Ltd",
+          "proposed_name_2": "Acme Beta Ltd"
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Complete Step 1",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/1/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Choose 2 proposed company names",
+        "data": {
+          "proposed_name_1": "Acme Alpha Ltd",
+          "proposed_name_2": "Acme Beta Ltd"
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Draft Step 2",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/2/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "business_activity": "Software development and IT consulting services"
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Complete Step 2",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/2/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Provide business activity (what the company does)",
+        "data": {
+          "business_activity": "Software development and IT consulting services"
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Draft Step 3",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/3/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "directors": [
+            {
+              "name": "Jane Doe",
+              "email": "jane@acme.ng",
+              "phone": "+2348012345678",
+              "nin": "12345678901"
+            }
+          ],
+          "shareholders": [
+            {
+              "name": "Jane Doe",
+              "ownership_percent": 100
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Complete Step 3",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/3/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Provide directors and shareholders details",
+        "data": {
+          "directors": [
+            {
+              "name": "Jane Doe",
+              "email": "jane@acme.ng",
+              "phone": "+2348012345678",
+              "nin": "12345678901"
+            }
+          ],
+          "shareholders": [
+            {
+              "name": "Jane Doe",
+              "ownership_percent": 100
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Draft Step 4",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/4/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "id_type": "NIN",
+          "id_number": "12345678901"
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Complete Step 4",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/4/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Upload valid ID (NIN or passport)",
+        "data": {
+          "id_type": "NIN",
+          "id_number": "12345678901"
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Draft Step 5",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/5/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "address": "12 Admiralty Way, Lekki",
+          "city": "Lagos",
+          "state": "Lagos"
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Complete Step 5",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/5/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Provide company address",
+        "data": {
+          "address": "12 Admiralty Way, Lekki",
+          "city": "Lagos",
+          "state": "Lagos"
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Draft Step 6",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/6/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "share_capital": 1000000,
+          "ownership_structure": [
+            {
+              "name": "Jane Doe",
+              "ownership_percent": 100
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Complete Step 6",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/6/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Approve company structure (share capital, ownership %)",
+        "data": {
+          "share_capital": 1000000,
+          "ownership_structure": [
+            {
+              "name": "Jane Doe",
+              "ownership_percent": 100
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Draft Step 7",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/7/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "confirmed": true
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Complete Step 7",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/7/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Review and confirm all details",
+        "data": {
+          "confirmed": true
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Draft Step 8",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/8/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "payment_reference": "PAY-CAC-2026-001",
+          "payment_amount": 50000
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Complete Step 8",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/steps/8/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Make payment",
+        "data": {
+          "payment_reference": "PAY-CAC-2026-001",
+          "payment_amount": 50000
+        }
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Upload VALID_ID",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/companies/{company_id}/documents",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null,
+      "multipart_form_data": {
+        "doc_type": "VALID_ID",
+        "file": "<select-file-in-postman>"
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Upload PASSPORT_PHOTO",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/companies/{company_id}/documents",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null,
+      "multipart_form_data": {
+        "doc_type": "PASSPORT_PHOTO",
+        "file": "<select-file-in-postman>"
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Upload ADDRESS_PROOF",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/companies/{company_id}/documents",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null,
+      "multipart_form_data": {
+        "doc_type": "ADDRESS_PROOF",
+        "file": "<select-file-in-postman>"
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Upload SIGNATURE",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/companies/{company_id}/documents",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null,
+      "multipart_form_data": {
+        "doc_type": "SIGNATURE",
+        "file": "<select-file-in-postman>"
+      }
+    },
+    {
+      "name": "CAC NEW \u2014 Get Status",
+      "method": "GET",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/status",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "CAC NEW \u2014 Submit Workflow",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/NEW/companies/{company_id}/submit",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "expiry_date": "2027-12-31"
+      }
+    },
+    {
+      "name": "Get CAC RENEWAL Template",
+      "method": "GET",
+      "uri": "/api/v1/workflow/templates/CAC/RENEWAL",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Start CAC RENEWAL Workflow",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/start",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Draft Step 1",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/1/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "still_active": true
+        }
+      }
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Complete Step 1",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/1/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Confirm company is still active",
+        "data": {
+          "still_active": true
+        }
+      }
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Draft Step 2",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/2/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "has_updates": false,
+          "updates": ""
+        }
+      }
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Complete Step 2",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/2/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Provide basic company updates (if any)",
+        "data": {
+          "has_updates": false,
+          "updates": ""
+        }
+      }
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Draft Step 3",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/3/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "no_activity": true,
+          "financial_summary_notes": "No trading activity"
+        }
+      }
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Complete Step 3",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/3/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Upload financial summary (or approve no activity)",
+        "data": {
+          "no_activity": true,
+          "financial_summary_notes": "No trading activity"
+        }
+      }
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Draft Step 4",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/4/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "filing_approved": true
+        }
+      }
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Complete Step 4",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/4/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Approve filing",
+        "data": {
+          "filing_approved": true
+        }
+      }
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Draft Step 5",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/5/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "payment_reference": "PAY-CAC-AR-2026-001"
+        }
+      }
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Complete Step 5",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/steps/5/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "step_name": "Make payment",
+        "data": {
+          "payment_reference": "PAY-CAC-AR-2026-001"
+        }
+      }
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Upload FINANCIAL_SUMMARY",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/companies/{company_id}/documents",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null,
+      "multipart_form_data": {
+        "doc_type": "FINANCIAL_SUMMARY",
+        "file": "<select-file-in-postman>"
+      }
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Get Status",
+      "method": "GET",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/status",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "CAC RENEWAL \u2014 Submit Workflow",
+      "method": "POST",
+      "uri": "/api/v1/workflow/CAC/RENEWAL/companies/{company_id}/submit",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "expiry_date": "2027-12-31"
       }
     },
     {

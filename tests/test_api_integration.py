@@ -151,3 +151,38 @@ def test_cac_company_requires_auth(client: TestClient):
         headers=headers,
     )
     assert any(d["doc_type"] == "CAC_CERTIFICATE" for d in firs_docs.json()["documents"])
+
+    start_cac = client.post(f"/api/v1/workflow/CAC/NEW/companies/{cid}/start", headers=headers)
+    assert start_cac.status_code == 200
+
+    draft = client.put(
+        f"/api/v1/workflow/CAC/NEW/companies/{cid}/steps/1/draft",
+        headers=headers,
+        json={
+            "data": {
+                "proposed_name_1": "Acme Alpha Ltd",
+                "proposed_name_2": "Acme Beta Ltd",
+            }
+        },
+    )
+    assert draft.status_code == 200
+    assert draft.json()["is_draft"] is True
+    assert draft.json()["step_data"]["proposed_name_1"] == "Acme Alpha Ltd"
+
+    complete1 = client.post(
+        f"/api/v1/workflow/CAC/NEW/companies/{cid}/steps/1/complete",
+        headers=headers,
+        json={
+            "step_name": "Choose 2 proposed company names",
+            "data": {
+                "proposed_name_1": "Acme Alpha Ltd",
+                "proposed_name_2": "Acme Beta Ltd",
+            },
+        },
+    )
+    assert complete1.status_code == 200
+
+    status = client.get(f"/api/v1/workflow/CAC/NEW/companies/{cid}/status", headers=headers)
+    step1 = next(s for s in status.json()["steps"] if s["step_number"] == 1)
+    assert step1["is_completed"] is True
+    assert step1["step_data"]["proposed_name_1"] == "Acme Alpha Ltd"

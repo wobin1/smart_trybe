@@ -12,8 +12,13 @@ from app.modules.workflow.service import WorkflowService
 router = APIRouter(prefix="/workflow", tags=["Compliance Workflow"])
 
 
+class StepDataPayload(BaseModel):
+    data: dict = Field(default_factory=dict)
+
+
 class CompleteStepBody(BaseModel):
     step_name: str = Field(..., min_length=1)
+    data: dict = Field(default_factory=dict)
 
 
 class AddOutputBody(BaseModel):
@@ -81,6 +86,26 @@ async def start_workflow(
     }
 
 
+@router.put("/{compliance_type}/{mode}/companies/{company_id}/steps/{step_number}/draft")
+async def save_step_draft(
+    compliance_type: ComplianceType,
+    mode: ComplianceMode,
+    company_id: UUID,
+    step_number: int,
+    body: StepDataPayload,
+    user: CurrentUser = Depends(get_current_user),
+    svc: WorkflowService = Depends(get_workflow_service),
+):
+    return await svc.save_step_draft(
+        company_id=company_id,
+        user_id=user.id,
+        compliance_type=compliance_type,
+        mode=mode,
+        step_number=step_number,
+        step_data=body.data,
+    )
+
+
 @router.post("/{compliance_type}/{mode}/companies/{company_id}/steps/{step_number}/complete")
 async def complete_step(
     compliance_type: ComplianceType,
@@ -98,6 +123,7 @@ async def complete_step(
         mode=mode,
         step_number=step_number,
         step_name=body.step_name,
+        step_data=body.data,
     )
     return {
         "id": str(row["id"]),

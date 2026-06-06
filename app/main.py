@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app.core.config import settings
 from app.core.database import close_pool, create_pool
 from app.db.bootstrap import bootstrap_database
+from app.modules.admin.router import router as admin_router
 from app.modules.auth.router import router as auth_router
 from app.modules.bpp_federal.router import router as bpp_federal_router
 from app.modules.bpp_state.router import router as bpp_state_router
@@ -35,6 +36,7 @@ app.include_router(bpp_federal_router, prefix="/api/v1")
 app.include_router(bpp_state_router, prefix="/api/v1")
 app.include_router(workflow_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
 
 
 def _ensure_upload_dir() -> None:

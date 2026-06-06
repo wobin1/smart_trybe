@@ -4,9 +4,18 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8000" },
-    { "key": "access_token", "value": "" },
-    { "key": "company_id", "value": "" }
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "company_id",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -41,7 +50,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"you@example.com\",\n  \"password\": \"yourpassword8charsmin\",\n  \"full_name\": \"Your Name\"\n}"
@@ -65,7 +79,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"you@example.com\",\n  \"password\": \"yourpassword8charsmin\"\n}"
@@ -78,7 +97,10 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/api/v1/auth/me"
           }
@@ -105,8 +127,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -120,7 +148,10 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/api/v1/cac/companies"
           }
@@ -130,7 +161,10 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/api/v1/cac/companies/{{company_id}}"
           }
@@ -140,8 +174,14 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -155,7 +195,10 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/api/v1/cac/companies/{{company_id}}/registry"
           }
@@ -165,8 +208,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -180,17 +229,870 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "doc_type", "value": "CAC_CERTIFICATE", "type": "text" },
-                { "key": "file", "type": "file", "src": "" }
+                {
+                  "key": "doc_type",
+                  "value": "CAC_CERTIFICATE",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
               ]
             },
             "url": "{{base_url}}/api/v1/cac/companies/{{company_id}}/documents"
           }
+        },
+        {
+          "name": "Workflow \u2014 CAC NEW (full test)",
+          "item": [
+            {
+              "name": "GET template CAC/NEW",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/templates/CAC/NEW"
+              }
+            },
+            {
+              "name": "POST start CAC/NEW",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/start"
+              }
+            },
+            {
+              "name": "PUT draft step 1",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/1/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"proposed_name_1\": \"Acme Alpha Ltd\",\n    \"proposed_name_2\": \"Acme Beta Ltd\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 1",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/1/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Choose 2 proposed company names\",\n  \"data\": {\n    \"proposed_name_1\": \"Acme Alpha Ltd\",\n    \"proposed_name_2\": \"Acme Beta Ltd\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "PUT draft step 2",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/2/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"business_activity\": \"Software development and IT consulting services\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 2",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/2/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Provide business activity (what the company does)\",\n  \"data\": {\n    \"business_activity\": \"Software development and IT consulting services\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "PUT draft step 3",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/3/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"directors\": [\n      {\n        \"name\": \"Jane Doe\",\n        \"email\": \"jane@acme.ng\",\n        \"phone\": \"+2348012345678\",\n        \"nin\": \"12345678901\"\n      }\n    ],\n    \"shareholders\": [\n      {\n        \"name\": \"Jane Doe\",\n        \"ownership_percent\": 100\n      }\n    ]\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 3",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/3/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Provide directors and shareholders details\",\n  \"data\": {\n    \"directors\": [\n      {\n        \"name\": \"Jane Doe\",\n        \"email\": \"jane@acme.ng\",\n        \"phone\": \"+2348012345678\",\n        \"nin\": \"12345678901\"\n      }\n    ],\n    \"shareholders\": [\n      {\n        \"name\": \"Jane Doe\",\n        \"ownership_percent\": 100\n      }\n    ]\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "PUT draft step 4",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/4/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"id_type\": \"NIN\",\n    \"id_number\": \"12345678901\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 4",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/4/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Upload valid ID (NIN or passport)\",\n  \"data\": {\n    \"id_type\": \"NIN\",\n    \"id_number\": \"12345678901\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "PUT draft step 5",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/5/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"address\": \"12 Admiralty Way, Lekki\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 5",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/5/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Provide company address\",\n  \"data\": {\n    \"address\": \"12 Admiralty Way, Lekki\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "PUT draft step 6",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/6/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"share_capital\": 1000000,\n    \"ownership_structure\": [\n      {\n        \"name\": \"Jane Doe\",\n        \"ownership_percent\": 100\n      }\n    ]\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 6",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/6/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Approve company structure (share capital, ownership %)\",\n  \"data\": {\n    \"share_capital\": 1000000,\n    \"ownership_structure\": [\n      {\n        \"name\": \"Jane Doe\",\n        \"ownership_percent\": 100\n      }\n    ]\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "PUT draft step 7",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/7/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"confirmed\": true\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 7",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/7/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Review and confirm all details\",\n  \"data\": {\n    \"confirmed\": true\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "PUT draft step 8",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/8/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"payment_reference\": \"PAY-CAC-2026-001\",\n    \"payment_amount\": 50000\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 8",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/8/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Make payment\",\n  \"data\": {\n    \"payment_reference\": \"PAY-CAC-2026-001\",\n    \"payment_amount\": 50000\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST upload VALID_ID",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/companies/{{company_id}}/documents",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "doc_type",
+                      "value": "VALID_ID",
+                      "type": "text"
+                    },
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": ""
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "POST upload PASSPORT_PHOTO",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/companies/{{company_id}}/documents",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "doc_type",
+                      "value": "PASSPORT_PHOTO",
+                      "type": "text"
+                    },
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": ""
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "POST upload ADDRESS_PROOF",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/companies/{{company_id}}/documents",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "doc_type",
+                      "value": "ADDRESS_PROOF",
+                      "type": "text"
+                    },
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": ""
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "POST upload SIGNATURE",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/companies/{{company_id}}/documents",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "doc_type",
+                      "value": "SIGNATURE",
+                      "type": "text"
+                    },
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": ""
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "GET status CAC/NEW",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/status"
+              }
+            },
+            {
+              "name": "POST submit CAC/NEW",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/submit",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"expiry_date\": \"2027-12-31\"\n}"
+                }
+              }
+            },
+            {
+              "name": "GET company workflow progress",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/companies/{{company_id}}/progress"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Workflow \u2014 CAC RENEWAL (full test)",
+          "item": [
+            {
+              "name": "GET template CAC/RENEWAL",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/templates/CAC/RENEWAL"
+              }
+            },
+            {
+              "name": "POST start CAC/RENEWAL",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/start"
+              }
+            },
+            {
+              "name": "PUT draft step 1",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/steps/1/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"still_active\": true\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 1",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/steps/1/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Confirm company is still active\",\n  \"data\": {\n    \"still_active\": true\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "PUT draft step 2",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/steps/2/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"has_updates\": false,\n    \"updates\": \"\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 2",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/steps/2/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Provide basic company updates (if any)\",\n  \"data\": {\n    \"has_updates\": false,\n    \"updates\": \"\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "PUT draft step 3",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/steps/3/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"no_activity\": true,\n    \"financial_summary_notes\": \"No trading activity\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 3",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/steps/3/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Upload financial summary (or approve no activity)\",\n  \"data\": {\n    \"no_activity\": true,\n    \"financial_summary_notes\": \"No trading activity\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "PUT draft step 4",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/steps/4/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"filing_approved\": true\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 4",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/steps/4/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Approve filing\",\n  \"data\": {\n    \"filing_approved\": true\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "PUT draft step 5",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/steps/5/draft",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"payment_reference\": \"PAY-CAC-AR-2026-001\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST complete step 5",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/steps/5/complete",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"step_name\": \"Make payment\",\n  \"data\": {\n    \"payment_reference\": \"PAY-CAC-AR-2026-001\"\n  }\n}"
+                }
+              }
+            },
+            {
+              "name": "POST upload FINANCIAL_SUMMARY",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/companies/{{company_id}}/documents",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "doc_type",
+                      "value": "FINANCIAL_SUMMARY",
+                      "type": "text"
+                    },
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": ""
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "GET status CAC/RENEWAL",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/status"
+              }
+            },
+            {
+              "name": "POST submit CAC/RENEWAL",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/CAC/RENEWAL/companies/{{company_id}}/submit",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"expiry_date\": \"2027-12-31\"\n}"
+                }
+              }
+            },
+            {
+              "name": "GET company workflow progress",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/workflow/companies/{{company_id}}/progress"
+              }
+            }
+          ]
         }
       ]
     },
@@ -202,7 +1104,10 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/api/v1/bpp/federal/companies/{{company_id}}/registry"
           }
@@ -212,8 +1117,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -227,13 +1138,24 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "doc_type", "value": "APPLICATION_FORM", "type": "text" },
-                { "key": "file", "type": "file", "src": "" }
+                {
+                  "key": "doc_type",
+                  "value": "APPLICATION_FORM",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
               ]
             },
             "url": "{{base_url}}/api/v1/bpp/federal/companies/{{company_id}}/documents"
@@ -249,7 +1171,10 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/api/v1/bpp/state/companies/{{company_id}}/registry"
           }
@@ -259,8 +1184,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -274,13 +1205,24 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "doc_type", "value": "VENDOR_FORM", "type": "text" },
-                { "key": "file", "type": "file", "src": "" }
+                {
+                  "key": "doc_type",
+                  "value": "VENDOR_FORM",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
               ]
             },
             "url": "{{base_url}}/api/v1/bpp/state/companies/{{company_id}}/documents"
