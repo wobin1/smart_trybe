@@ -3,6 +3,7 @@ from uuid import UUID
 import asyncpg
 from fastapi import HTTPException
 
+from app.domain.enums import UserRole
 from app.modules.cac.repository import fetch_company_by_id, list_all_companies
 from app.modules.compliance import repository as compliance_repo
 from app.modules.documents.service import DocumentService
@@ -44,6 +45,7 @@ class AdminService:
             docs = await self._documents.list_company_documents(
                 company_id=company_id,
                 user_id=company["user_id"],
+                role=UserRole.ADMIN,
             )
             registry = await compliance_repo.list_registry_for_company(conn, company_id)
 

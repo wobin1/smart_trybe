@@ -5,7 +5,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from pydantic import BaseModel, Field
 
-from app.api.deps import CurrentUser, db_pool, get_current_user
+from app.api.deps import CurrentUser, db_pool, get_agent_or_admin_user, get_current_user
 from app.domain.enums import ComplianceMode, ComplianceType
 from app.modules.workflow.service import WorkflowService
 
@@ -58,7 +58,9 @@ async def get_company_workflow_progress(
     user: CurrentUser = Depends(get_current_user),
     svc: WorkflowService = Depends(get_workflow_service),
 ):
-    return await svc.get_company_progress(company_id=company_id, user_id=user.id)
+    return await svc.get_company_progress(
+        company_id=company_id, user_id=user.id, role=user.role
+    )
 
 
 @router.post("/{compliance_type}/{mode}/companies/{company_id}/start")
@@ -72,6 +74,7 @@ async def start_workflow(
     row = await svc.start(
         company_id=company_id,
         user_id=user.id,
+        role=user.role,
         compliance_type=compliance_type,
         mode=mode,
     )
@@ -99,6 +102,7 @@ async def save_step_draft(
     return await svc.save_step_draft(
         company_id=company_id,
         user_id=user.id,
+        role=user.role,
         compliance_type=compliance_type,
         mode=mode,
         step_number=step_number,
@@ -119,6 +123,7 @@ async def complete_step(
     row = await svc.complete_step(
         company_id=company_id,
         user_id=user.id,
+        role=user.role,
         compliance_type=compliance_type,
         mode=mode,
         step_number=step_number,
@@ -145,6 +150,7 @@ async def upload_workflow_document(
     doc_id = await svc.upload_document(
         company_id=company_id,
         user_id=user.id,
+        role=user.role,
         compliance_type=compliance_type,
         doc_type=doc_type,
         file=file,
@@ -158,12 +164,13 @@ async def add_workflow_output(
     mode: ComplianceMode,
     company_id: UUID,
     body: AddOutputBody,
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_agent_or_admin_user),
     svc: WorkflowService = Depends(get_workflow_service),
 ):
     output_id = await svc.add_output(
         company_id=company_id,
         user_id=user.id,
+        role=user.role,
         compliance_type=compliance_type,
         mode=mode,
         output_type=body.output_type,
@@ -183,6 +190,7 @@ async def get_workflow_status(
     return await svc.get_status(
         company_id=company_id,
         user_id=user.id,
+        role=user.role,
         compliance_type=compliance_type,
         mode=mode,
     )
@@ -200,6 +208,7 @@ async def submit_workflow(
     return await svc.submit(
         company_id=company_id,
         user_id=user.id,
+        role=user.role,
         compliance_type=compliance_type,
         mode=mode,
         expiry_date=body.expiry_date,

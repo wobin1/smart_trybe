@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, EmailStr, Field
 
 from app.api.deps import CurrentUser, db_pool, get_current_user
+from app.domain.enums import UserRole
+from app.modules.access.company import resolve_user_role
 from app.modules.auth.service import AuthService
 
 
@@ -31,6 +33,7 @@ class UserMe(BaseModel):
     id: UUID
     email: str
     full_name: str | None
+    role: UserRole
     is_admin: bool
     created_at: str
 
@@ -55,10 +58,12 @@ async def login(body: LoginBody, svc: AuthService = Depends(get_auth_service)):
 @router.get("/me")
 async def me(user: CurrentUser = Depends(get_current_user)):
     r = user.record
+    role = resolve_user_role(r)
     return UserMe(
         id=r["id"],
         email=r["email"],
         full_name=r["full_name"],
-        is_admin=bool(r.get("is_admin")),
+        role=role,
+        is_admin=role == UserRole.ADMIN,
         created_at=r["created_at"].isoformat(),
     )

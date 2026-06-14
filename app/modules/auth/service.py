@@ -4,7 +4,6 @@ import asyncpg
 from fastapi import HTTPException
 from jose import JWTError
 
-from app.core.config import settings
 from app.core.security import create_access_token, decode_token, hash_password, parse_user_id_from_payload, verify_password
 from app.modules.auth import repository as auth_repo
 
@@ -19,8 +18,7 @@ class AuthService:
             if existing is not None:
                 raise HTTPException(status_code=409, detail="Email already registered")
             pw_hash = hash_password(password)
-            is_admin = email.strip().lower() in settings.admin_email_set()
-            return await auth_repo.insert_user(conn, email, pw_hash, full_name, is_admin=is_admin)
+            return await auth_repo.insert_user(conn, email, pw_hash, full_name, role="CLIENT")
 
     async def login(self, *, email: str, password: str) -> str:
         async with self._pool.acquire() as conn:

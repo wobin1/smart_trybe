@@ -5,7 +5,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from app.api.deps import CurrentUser, db_pool, get_current_user
+from app.api.deps import CurrentUser, db_pool, get_agent_or_admin_user, get_current_user
 from app.domain.enums import ComplianceStatus
 from app.modules.cac.service import CACService
 
@@ -48,6 +48,7 @@ async def create_company(
         tin=body.tin,
         address=body.address,
         user_id=user.id,
+        role=user.role,
     )
     return {"id": str(company_id)}
 
@@ -57,7 +58,7 @@ async def list_companies(
     user: CurrentUser = Depends(get_current_user),
     svc: CACService = Depends(get_cac_service),
 ):
-    rows = await svc.list_companies(user.id)
+    rows = await svc.list_companies(user.id, user.role)
     return [
         {
             "id": str(r["id"]),
@@ -78,7 +79,7 @@ async def get_company(
     user: CurrentUser = Depends(get_current_user),
     svc: CACService = Depends(get_cac_service),
 ):
-    r = await svc.get_company(company_id, user.id)
+    r = await svc.get_company(company_id, user.id, user.role)
     return {
         "id": str(r["id"]),
         "name": r["name"],
@@ -103,7 +104,7 @@ async def patch_company(
             status_code=400,
             detail="Provide at least one field to update: name, rc_number, tin, address",
         )
-    r = await svc.update_company(company_id, user.id, updates)
+    r = await svc.update_company(company_id, user.id, user.role, updates)
     return {
         "id": str(r["id"]),
         "name": r["name"],
@@ -121,7 +122,7 @@ async def get_cac_registry(
     user: CurrentUser = Depends(get_current_user),
     svc: CACService = Depends(get_cac_service),
 ):
-    row = await svc.get_cac_registry(company_id, user.id)
+    row = await svc.get_cac_registry(company_id, user.id, user.role)
     if row is None:
         return {"company_id": str(company_id), "compliance_type": "CAC", "status": None}
     return {
@@ -137,13 +138,13 @@ async def get_cac_registry(
 async def put_cac_registry(
     company_id: UUID,
     body: CACRegistryUpdate,
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_agent_or_admin_user),
     svc: CACService = Depends(get_cac_service),
 ):
     await svc.update_cac_registry(
-        company_id, user.id, status=body.status, expiry_date=body.expiry_date
+        company_id, user.id, user.role, status=body.status, expiry_date=body.expiry_date
     )
-    row = await svc.get_cac_registry(company_id, user.id)
+    row = await svc.get_cac_registry(company_id, user.id, user.role)
     assert row is not None
     return {
         "company_id": str(row["company_id"]),
@@ -162,5 +163,7 @@ async def upload_cac_document(
     user: CurrentUser = Depends(get_current_user),
     svc: CACService = Depends(get_cac_service),
 ):
-    doc_id = await svc.upload_document(company_id, user.id, doc_type=doc_type, file=file)
+    doc_id = await svc.upload_document(
+        company_id, user.id, user.role, doc_type=doc_type, file=file
+    )
     return {"id": str(doc_id)}

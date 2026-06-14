@@ -15,6 +15,14 @@
     {
       "key": "company_id",
       "value": ""
+    },
+    {
+      "key": "user_id",
+      "value": ""
+    },
+    {
+      "key": "agent_user_id",
+      "value": ""
     }
   ],
   "item": [
@@ -1227,6 +1235,226 @@
             },
             "url": "{{base_url}}/api/v1/bpp/state/companies/{{company_id}}/documents"
           }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Requires admin token (role ADMIN). Set ADMIN_EMAILS in .env, register, restart server, then login.",
+      "item": [
+        {
+          "name": "User Management",
+          "item": [
+            {
+              "name": "GET list users",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/admin/users"
+              }
+            },
+            {
+              "name": "GET list agents only",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/admin/users?role=AGENT"
+              }
+            },
+            {
+              "name": "POST create agent",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/admin/users",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"agent@example.com\",\n  \"password\": \"yourpassword123\",\n  \"full_name\": \"Compliance Agent\",\n  \"role\": \"AGENT\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "if (j.id) pm.collectionVariables.set('agent_user_id', j.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "POST create admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/admin/users",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"newadmin@example.com\",\n  \"password\": \"yourpassword123\",\n  \"full_name\": \"Another Admin\",\n  \"role\": \"ADMIN\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "if (j.id) pm.collectionVariables.set('user_id', j.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "PATCH update user",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/admin/users/{agent_user_id}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"full_name\": \"Agent Updated\",\n  \"is_active\": true\n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Companies",
+          "item": [
+            {
+              "name": "GET list all companies",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/admin/companies"
+              }
+            },
+            {
+              "name": "GET company detail",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/admin/companies/{company_id}"
+              }
+            },
+            {
+              "name": "GET company workflow progress",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/admin/companies/{company_id}/workflow-progress"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agent Assignments",
+          "item": [
+            {
+              "name": "GET company assignments",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/admin/companies/{company_id}/assignments"
+              }
+            },
+            {
+              "name": "POST assign agent to company",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/admin/companies/{company_id}/assign-agent",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"agent_user_id\": \"{{agent_user_id}}\"\n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE unassign agent",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/admin/companies/{company_id}/assign-agent/{agent_user_id}"
+              }
+            }
+          ]
         }
       ]
     }

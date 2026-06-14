@@ -4,8 +4,15 @@ from enum import Enum
 class ComplianceStatus(str, Enum):
     NOT_STARTED = "NOT_STARTED"
     PENDING = "PENDING"
+    IN_REVIEW = "IN_REVIEW"
     COMPLETED = "COMPLETED"
     EXPIRED = "EXPIRED"
+
+
+class UserRole(str, Enum):
+    CLIENT = "CLIENT"
+    AGENT = "AGENT"
+    ADMIN = "ADMIN"
 
 
 class ComplianceType(str, Enum):

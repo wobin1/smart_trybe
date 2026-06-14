@@ -8,8 +8,12 @@ import asyncpg
 from fastapi import HTTPException, UploadFile
 
 from app.core.config import settings
-from app.domain.enums import ComplianceMode, ComplianceStatus, ComplianceType
-from app.modules.cac.repository import fetch_company_for_user
+from app.domain.enums import ComplianceMode, ComplianceStatus, ComplianceType, UserRole
+from app.modules.access.company import (
+    require_company_agent,
+    require_company_client,
+    require_company_read,
+)
 from app.modules.compliance import repository as compliance_repo
 from app.modules.compliance.engine import ComplianceEngine
 from app.modules.workflow.catalog import REQUIRED_DOCS, WORKFLOW_STEP_DEFINITIONS
@@ -82,12 +86,13 @@ class WorkflowService:
         *,
         company_id: UUID,
         user_id: UUID,
+        role: UserRole,
         compliance_type: ComplianceType,
         mode: ComplianceMode,
     ) -> asyncpg.Record:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                _ensure_company(await fetch_company_for_user(conn, company_id, user_id))
+                _ensure_company(await require_company_client(conn, company_id, user_id, role))
                 template = await compliance_repo.fetch_workflow_template(
                     conn, compliance_type.value, mode.value
                 )
@@ -146,6 +151,7 @@ class WorkflowService:
         *,
         company_id: UUID,
         user_id: UUID,
+        role: UserRole,
         compliance_type: ComplianceType,
         mode: ComplianceMode,
         step_number: int,
@@ -153,7 +159,7 @@ class WorkflowService:
     ) -> dict:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                _ensure_company(await fetch_company_for_user(conn, company_id, user_id))
+                _ensure_company(await require_company_client(conn, company_id, user_id, role))
                 wf = _ensure_workflow(
                     await compliance_repo.fetch_workflow(
                         conn, company_id, compliance_type.value, mode.value
@@ -195,6 +201,7 @@ class WorkflowService:
         *,
         company_id: UUID,
         user_id: UUID,
+        role: UserRole,
         compliance_type: ComplianceType,
         mode: ComplianceMode,
         step_number: int,
@@ -203,7 +210,7 @@ class WorkflowService:
     ) -> asyncpg.Record:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                _ensure_company(await fetch_company_for_user(conn, company_id, user_id))
+                _ensure_company(await require_company_client(conn, company_id, user_id, role))
                 wf = _ensure_workflow(
                     await compliance_repo.fetch_workflow(
                         conn, company_id, compliance_type.value, mode.value
@@ -243,6 +250,7 @@ class WorkflowService:
         *,
         company_id: UUID,
         user_id: UUID,
+        role: UserRole,
         compliance_type: ComplianceType,
         doc_type: str,
         file: UploadFile,
@@ -250,7 +258,10 @@ class WorkflowService:
         safe_name = Path(file.filename or "upload").name
         data = await file.read()
         async with self._pool.acquire() as conn:
-            _ensure_company(await fetch_company_for_user(conn, company_id, user_id))
+            if role == UserRole.CLIENT:
+                _ensure_company(await require_company_client(conn, company_id, user_id, role))
+            else:
+                _ensure_company(await require_company_agent(conn, company_id, user_id, role))
             dest_dir = Path(settings.upload_dir) / str(company_id) / compliance_type.value.lower()
             dest_dir.mkdir(parents=True, exist_ok=True)
             dest_path = dest_dir / f"{uuid4()}_{safe_name}"
@@ -268,6 +279,7 @@ class WorkflowService:
         *,
         company_id: UUID,
         user_id: UUID,
+        role: UserRole,
         compliance_type: ComplianceType,
         mode: ComplianceMode,
         output_type: str,
@@ -275,7 +287,7 @@ class WorkflowService:
     ) -> UUID:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                _ensure_company(await fetch_company_for_user(conn, company_id, user_id))
+                _ensure_company(await require_company_agent(conn, company_id, user_id, role))
                 wf = _ensure_workflow(
                     await compliance_repo.fetch_workflow(
                         conn, company_id, compliance_type.value, mode.value
@@ -285,9 +297,11 @@ class WorkflowService:
                     conn, wf["id"], output_type, output_value
                 )
 
-    async def get_company_progress(self, *, company_id: UUID, user_id: UUID) -> dict:
+    async def get_company_progress(
+        self, *, company_id: UUID, user_id: UUID, role: UserRole
+    ) -> dict:
         async with self._pool.acquire() as conn:
-            _ensure_company(await fetch_company_for_user(conn, company_id, user_id))
+            _ensure_company(await require_company_read(conn, company_id, user_id, role))
             return await self._build_company_progress(conn, company_id)
 
     async def get_status(
@@ -295,11 +309,12 @@ class WorkflowService:
         *,
         company_id: UUID,
         user_id: UUID,
+        role: UserRole,
         compliance_type: ComplianceType,
         mode: ComplianceMode,
     ) -> dict:
         async with self._pool.acquire() as conn:
-            _ensure_company(await fetch_company_for_user(conn, company_id, user_id))
+            _ensure_company(await require_company_read(conn, company_id, user_id, role))
             wf = _ensure_workflow(
                 await compliance_repo.fetch_workflow(conn, company_id, compliance_type.value, mode.value)
             )
@@ -499,13 +514,14 @@ class WorkflowService:
         *,
         company_id: UUID,
         user_id: UUID,
+        role: UserRole,
         compliance_type: ComplianceType,
         mode: ComplianceMode,
         expiry_date: date | None,
     ) -> dict:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                _ensure_company(await fetch_company_for_user(conn, company_id, user_id))
+                _ensure_company(await require_company_client(conn, company_id, user_id, role))
                 wf = _ensure_workflow(
                     await compliance_repo.fetch_workflow(conn, company_id, compliance_type.value, mode.value)
                 )
@@ -541,6 +557,73 @@ class WorkflowService:
                     )
 
                 await compliance_repo.mark_workflow_status(
+                    conn, wf["id"], ComplianceStatus.IN_REVIEW.value, wf["total_steps"]
+                )
+                await compliance_repo.upsert_registry_status(
+                    conn,
+                    company_id,
+                    compliance_type.value,
+                    ComplianceStatus.IN_REVIEW.value,
+                    expiry_date,
+                )
+                return {
+                    "company_id": str(company_id),
+                    "compliance_type": compliance_type.value,
+                    "mode": mode.value,
+                    "status": ComplianceStatus.IN_REVIEW.value,
+                    "expiry_date": expiry_date.isoformat() if expiry_date else None,
+                }
+
+    async def update_workflow_status(
+        self,
+        *,
+        company_id: UUID,
+        user_id: UUID,
+        role: UserRole,
+        compliance_type: ComplianceType,
+        mode: ComplianceMode,
+        status: ComplianceStatus,
+        current_step: int | None = None,
+    ) -> dict:
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                _ensure_company(await require_company_agent(conn, company_id, user_id, role))
+                wf = _ensure_workflow(
+                    await compliance_repo.fetch_workflow(
+                        conn, company_id, compliance_type.value, mode.value
+                    )
+                )
+                step = current_step if current_step is not None else wf["current_step"]
+                await compliance_repo.mark_workflow_status(conn, wf["id"], status.value, step)
+                updated = await compliance_repo.fetch_workflow(
+                    conn, company_id, compliance_type.value, mode.value
+                )
+                assert updated is not None
+                return {
+                    "workflow_id": str(updated["id"]),
+                    "status": updated["status"],
+                    "current_step": updated["current_step"],
+                }
+
+    async def complete_workflow_as_agent(
+        self,
+        *,
+        company_id: UUID,
+        user_id: UUID,
+        role: UserRole,
+        compliance_type: ComplianceType,
+        mode: ComplianceMode,
+        expiry_date: date | None,
+    ) -> dict:
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                _ensure_company(await require_company_agent(conn, company_id, user_id, role))
+                wf = _ensure_workflow(
+                    await compliance_repo.fetch_workflow(
+                        conn, company_id, compliance_type.value, mode.value
+                    )
+                )
+                await compliance_repo.mark_workflow_status(
                     conn, wf["id"], ComplianceStatus.COMPLETED.value, wf["total_steps"]
                 )
                 await compliance_repo.upsert_registry_status(
@@ -554,6 +637,33 @@ class WorkflowService:
                     "company_id": str(company_id),
                     "compliance_type": compliance_type.value,
                     "mode": mode.value,
-                    "status": "COMPLETED",
+                    "status": ComplianceStatus.COMPLETED.value,
                     "expiry_date": expiry_date.isoformat() if expiry_date else None,
+                }
+
+    async def update_registry(
+        self,
+        *,
+        company_id: UUID,
+        user_id: UUID,
+        role: UserRole,
+        compliance_type: ComplianceType,
+        status: ComplianceStatus,
+        expiry_date: date | None,
+    ) -> dict:
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                _ensure_company(await require_company_agent(conn, company_id, user_id, role))
+                await compliance_repo.upsert_registry_status(
+                    conn, company_id, compliance_type.value, status.value, expiry_date
+                )
+                row = await compliance_repo.fetch_registry_row(
+                    conn, company_id, compliance_type.value
+                )
+                return {
+                    "compliance_type": compliance_type.value,
+                    "status": row["status"] if row else status.value,
+                    "expiry_date": row["expiry_date"].isoformat()
+                    if row and row["expiry_date"]
+                    else None,
                 }

@@ -5,7 +5,8 @@
     "All /api/v1/cac/* and /api/v1/bpp/* endpoints require Authorization header.",
     "For multipart endpoints, do not send JSON body; use form-data with keys exactly as documented.",
     "Use register/login response access_token for subsequent requests.",
-    "CAC workflow tests: run Create CAC Company first, then CAC NEW or CAC RENEWAL blocks in order."
+    "CAC workflow tests: run Create CAC Company first, then CAC NEW or CAC RENEWAL blocks in order.",
+    "Admin section: login as admin (ADMIN_EMAILS + register + restart), then run Admin requests."
   ],
   "endpoints": [
     {
@@ -166,6 +167,125 @@
         "email": "user@example.com",
         "password": "yourpassword123"
       }
+    },
+    {
+      "name": "Admin \u2014 List Users",
+      "method": "GET",
+      "uri": "/api/v1/admin/users",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Admin \u2014 List Agents",
+      "method": "GET",
+      "uri": "/api/v1/admin/users?role=AGENT",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Admin \u2014 Create Agent",
+      "method": "POST",
+      "uri": "/api/v1/admin/users",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "email": "agent@example.com",
+        "password": "yourpassword123",
+        "full_name": "Compliance Agent",
+        "role": "AGENT"
+      }
+    },
+    {
+      "name": "Admin \u2014 Create Admin User",
+      "method": "POST",
+      "uri": "/api/v1/admin/users",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "email": "newadmin@example.com",
+        "password": "yourpassword123",
+        "full_name": "Another Admin",
+        "role": "ADMIN"
+      }
+    },
+    {
+      "name": "Admin \u2014 Update User",
+      "method": "PATCH",
+      "uri": "/api/v1/admin/users/{user_id}",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "full_name": "Updated Name",
+        "is_active": true,
+        "role": "AGENT"
+      }
+    },
+    {
+      "name": "Admin \u2014 List All Companies",
+      "method": "GET",
+      "uri": "/api/v1/admin/companies",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Admin \u2014 Get Company Detail",
+      "method": "GET",
+      "uri": "/api/v1/admin/companies/{company_id}",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Admin \u2014 Get Company Workflow Progress",
+      "method": "GET",
+      "uri": "/api/v1/admin/companies/{company_id}/workflow-progress",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Admin \u2014 List Company Agent Assignments",
+      "method": "GET",
+      "uri": "/api/v1/admin/companies/{company_id}/assignments",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Admin \u2014 Assign Agent to Company",
+      "method": "POST",
+      "uri": "/api/v1/admin/companies/{company_id}/assign-agent",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "agent_user_id": "<agent-user-uuid>"
+      }
+    },
+    {
+      "name": "Admin \u2014 Unassign Agent from Company",
+      "method": "DELETE",
+      "uri": "/api/v1/admin/companies/{company_id}/assign-agent/{agent_user_id}",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
     },
     {
       "name": "Get Current User",
@@ -898,6 +1018,133 @@
         "file": "<select-file-in-postman>"
       },
       "json_payload": null
+    }
+  ],
+  "sections": [
+    {
+      "name": "Admin",
+      "description": "Requires admin Bearer token. Setup: add email to ADMIN_EMAILS in .env, register, restart backend, login as admin.",
+      "endpoints": [
+        {
+          "name": "Admin \u2014 List Users",
+          "method": "GET",
+          "uri": "/api/v1/admin/users",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Admin \u2014 List Agents",
+          "method": "GET",
+          "uri": "/api/v1/admin/users?role=AGENT",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Admin \u2014 Create Agent",
+          "method": "POST",
+          "uri": "/api/v1/admin/users",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "email": "agent@example.com",
+            "password": "yourpassword123",
+            "full_name": "Compliance Agent",
+            "role": "AGENT"
+          }
+        },
+        {
+          "name": "Admin \u2014 Create Admin User",
+          "method": "POST",
+          "uri": "/api/v1/admin/users",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "email": "newadmin@example.com",
+            "password": "yourpassword123",
+            "full_name": "Another Admin",
+            "role": "ADMIN"
+          }
+        },
+        {
+          "name": "Admin \u2014 Update User",
+          "method": "PATCH",
+          "uri": "/api/v1/admin/users/{user_id}",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "full_name": "Updated Name",
+            "is_active": true,
+            "role": "AGENT"
+          }
+        },
+        {
+          "name": "Admin \u2014 List All Companies",
+          "method": "GET",
+          "uri": "/api/v1/admin/companies",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Admin \u2014 Get Company Detail",
+          "method": "GET",
+          "uri": "/api/v1/admin/companies/{company_id}",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Admin \u2014 Get Company Workflow Progress",
+          "method": "GET",
+          "uri": "/api/v1/admin/companies/{company_id}/workflow-progress",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Admin \u2014 List Company Agent Assignments",
+          "method": "GET",
+          "uri": "/api/v1/admin/companies/{company_id}/assignments",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Admin \u2014 Assign Agent to Company",
+          "method": "POST",
+          "uri": "/api/v1/admin/companies/{company_id}/assign-agent",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "agent_user_id": "<agent-user-uuid>"
+          }
+        },
+        {
+          "name": "Admin \u2014 Unassign Agent from Company",
+          "method": "DELETE",
+          "uri": "/api/v1/admin/companies/{company_id}/assign-agent/{agent_user_id}",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        }
+      ]
     }
   ]
 }

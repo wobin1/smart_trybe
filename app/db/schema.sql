@@ -42,6 +42,24 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$
+BEGIN
+    CREATE TYPE user_role AS ENUM (
+        'CLIENT',
+        'AGENT',
+        'ADMIN'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER TYPE compliance_status ADD VALUE IF NOT EXISTS 'IN_REVIEW';
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT NOT NULL UNIQUE,
@@ -49,6 +67,7 @@ CREATE TABLE IF NOT EXISTS users (
     full_name TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    role user_role NOT NULL DEFAULT 'CLIENT',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -136,6 +155,19 @@ CREATE TABLE IF NOT EXISTS compliance_step_progress (
 );
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role user_role NOT NULL DEFAULT 'CLIENT';
+UPDATE users SET role = 'ADMIN'::user_role, is_admin = TRUE WHERE is_admin = TRUE AND role = 'CLIENT'::user_role;
+
+CREATE TABLE IF NOT EXISTS company_agent_assignments (
+    company_id UUID NOT NULL REFERENCES companies (id) ON DELETE CASCADE,
+    agent_user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    assigned_by UUID REFERENCES users (id) ON DELETE SET NULL,
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (company_id, agent_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_assignments_agent
+    ON company_agent_assignments (agent_user_id);
 ALTER TABLE compliance_step_progress ADD COLUMN IF NOT EXISTS step_data JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE compliance_step_progress ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 

@@ -2,9 +2,15 @@ from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from app.api.deps import CurrentUser, db_pool, get_current_user
+from app.api.deps import (
+    CurrentUser,
+    db_pool,
+    get_current_user,
+    get_current_user_from_header_or_query,
+)
 from app.domain.enums import ComplianceType
 from app.modules.documents.service import DocumentService
 
@@ -34,8 +40,47 @@ async def list_company_documents(
     return await svc.list_company_documents(
         company_id=company_id,
         user_id=user.id,
+        role=user.role,
         compliance_type=compliance_type.value if compliance_type else None,
         doc_type=doc_type,
+    )
+
+
+@router.get("/{company_id}/documents/{document_id}")
+async def get_company_document(
+    company_id: UUID,
+    document_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+    svc: DocumentService = Depends(get_document_service),
+):
+    return await svc.get_document(
+        company_id=company_id,
+        document_id=document_id,
+        user_id=user.id,
+        role=user.role,
+    )
+
+
+@router.get("/{company_id}/documents/{document_id}/file")
+async def view_company_document_file(
+    company_id: UUID,
+    document_id: UUID,
+    download: bool = Query(default=False),
+    user: CurrentUser = Depends(get_current_user_from_header_or_query),
+    svc: DocumentService = Depends(get_document_service),
+):
+    path, filename, media_type = await svc.open_document_file(
+        company_id=company_id,
+        document_id=document_id,
+        user_id=user.id,
+        role=user.role,
+    )
+    disposition = "attachment" if download else "inline"
+    return FileResponse(
+        path,
+        media_type=media_type,
+        filename=filename,
+        headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
     )
 
 
@@ -49,6 +94,7 @@ async def reuse_company_document(
     return await svc.reuse_document(
         company_id=company_id,
         user_id=user.id,
+        role=user.role,
         document_id=body.document_id,
         target_compliance_type=body.compliance_type.value,
     )
