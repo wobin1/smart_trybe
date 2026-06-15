@@ -139,21 +139,22 @@ def test_cac_company_requires_auth(client: TestClient):
     doc = next(d for d in library.json()["documents"] if d["id"] == doc_id)
     assert doc["filename"] == "cert.pdf"
     assert doc["content_type"] == "application/pdf"
-    assert doc["view_url"].endswith(f"/documents/{doc_id}/file")
+    assert doc["view_url"].startswith("https://res.cloudinary.com/")
 
     view = client.get(
         f"/api/v1/companies/{cid}/documents/{doc_id}/file",
         headers=headers,
+        follow_redirects=False,
     )
-    assert view.status_code == 200
-    assert view.headers["content-type"].startswith("application/pdf")
-    assert b"PDF" in view.content
+    assert view.status_code == 307
+    assert view.headers["location"].startswith("https://res.cloudinary.com/")
 
     view_query = client.get(
         f"/api/v1/companies/{cid}/documents/{doc_id}/file",
         params={"access_token": token},
+        follow_redirects=False,
     )
-    assert view_query.status_code == 200
+    assert view_query.status_code == 307
 
     reuse = client.post(
         f"/api/v1/companies/{cid}/documents/reuse",

@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.core.config import settings
 from app.core.database import close_pool, create_pool
 from app.db.bootstrap import bootstrap_database
 from app.modules.admin.router import router as admin_router
@@ -39,12 +38,3 @@ app.include_router(workflow_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(agent_router, prefix="/api/v1")
-
-
-def _ensure_upload_dir() -> None:
-    from pathlib import Path
-
-    Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
-
-
-_ensure_upload_dir()

@@ -1,11 +1,11 @@
 from datetime import date
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import asyncpg
 from fastapi import HTTPException, UploadFile
 
-from app.core.config import settings
+from app.core.storage import build_upload_folder, upload_file
 from app.domain.enums import ComplianceStatus, ComplianceType, UserRole
 from app.modules.access.company import (
     require_company_agent,
@@ -116,11 +116,11 @@ class CACService:
 
         safe_name = Path(file.filename or "upload").name
         data = await file.read()
-        dest_dir = Path(settings.upload_dir) / str(company_id)
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest_path = dest_dir / f"{uuid4()}_{safe_name}"
-        dest_path.write_bytes(data)
-        storage_ref = str(dest_path.resolve())
+        folder = build_upload_folder(
+            company_id=str(company_id),
+            compliance_type=ComplianceType.CAC.value,
+        )
+        storage_url = upload_file(data=data, filename=safe_name, folder=folder)
 
         async with self._pool.acquire() as conn:
             doc_id = await reg_repo.insert_document(
@@ -128,6 +128,6 @@ class CACService:
                 company_id,
                 ComplianceType.CAC.value,
                 doc_type,
-                storage_ref,
+                storage_url,
             )
         return doc_id

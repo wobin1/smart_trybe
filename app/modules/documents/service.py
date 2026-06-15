@@ -10,8 +10,10 @@ from app.modules.compliance import repository as compliance_repo
 from app.modules.documents.files import (
     build_file_path,
     build_public_url,
+    cloudinary_attachment_url,
     filename_from_storage_ref,
     guess_media_type,
+    is_remote_url,
     resolve_upload_path,
 )
 
@@ -23,18 +25,25 @@ def _ensure_company(row: asyncpg.Record | None) -> asyncpg.Record:
 
 
 def _format_document(company_id: UUID, row: asyncpg.Record) -> dict:
-    filename = filename_from_storage_ref(row["s3_url"])
-    view_path = build_file_path(str(company_id), str(row["id"]))
-    download_path = build_file_path(str(company_id), str(row["id"]), download=True)
+    storage_ref = row["s3_url"]
+    filename = filename_from_storage_ref(storage_ref)
+    if is_remote_url(storage_ref):
+        view_url = storage_ref
+        download_url = cloudinary_attachment_url(storage_ref, filename)
+    else:
+        view_path = build_file_path(str(company_id), str(row["id"]))
+        download_path = build_file_path(str(company_id), str(row["id"]), download=True)
+        view_url = build_public_url(view_path)
+        download_url = build_public_url(download_path)
     return {
         "id": str(row["id"]),
         "compliance_type": row["compliance_type"],
         "doc_type": row["doc_type"],
         "filename": filename,
         "content_type": guess_media_type(filename),
-        "storage_ref": row["s3_url"],
-        "view_url": build_public_url(view_path),
-        "download_url": build_public_url(download_path),
+        "storage_ref": storage_ref,
+        "view_url": view_url,
+        "download_url": download_url,
         "uploaded_at": row["uploaded_at"].isoformat(),
     }
 
@@ -84,17 +93,22 @@ class DocumentService:
         document_id: UUID,
         user_id: UUID,
         role: UserRole,
-    ) -> tuple[Path, str, str]:
+        download: bool = False,
+    ) -> tuple[str | Path, str, str]:
         async with self._pool.acquire() as conn:
             _ensure_company(await require_company_read(conn, company_id, user_id, role))
             row = await compliance_repo.fetch_document_for_company(conn, document_id, company_id)
             if row is None:
                 raise HTTPException(status_code=404, detail="Document not found")
 
-        path = resolve_upload_path(row["s3_url"])
-        filename = filename_from_storage_ref(row["s3_url"])
+        storage_ref = row["s3_url"]
+        filename = filename_from_storage_ref(storage_ref)
         media_type = guess_media_type(filename)
-        return path, filename, media_type
+        if is_remote_url(storage_ref):
+            url = cloudinary_attachment_url(storage_ref, filename) if download else storage_ref
+            return url, filename, media_type
+
+        return resolve_upload_path(storage_ref), filename, media_type
 
     async def reuse_document(
         self,

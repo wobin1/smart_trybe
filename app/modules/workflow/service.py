@@ -2,12 +2,12 @@ import json
 from datetime import date
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import asyncpg
 from fastapi import HTTPException, UploadFile
 
-from app.core.config import settings
+from app.core.storage import build_upload_folder, upload_file
 from app.domain.enums import ComplianceMode, ComplianceStatus, ComplianceType, UserRole
 from app.modules.access.company import (
     require_company_agent,
@@ -257,21 +257,22 @@ class WorkflowService:
     ) -> UUID:
         safe_name = Path(file.filename or "upload").name
         data = await file.read()
+        folder = build_upload_folder(
+            company_id=str(company_id),
+            compliance_type=compliance_type.value,
+        )
+        storage_url = upload_file(data=data, filename=safe_name, folder=folder)
         async with self._pool.acquire() as conn:
             if role == UserRole.CLIENT:
                 _ensure_company(await require_company_client(conn, company_id, user_id, role))
             else:
                 _ensure_company(await require_company_agent(conn, company_id, user_id, role))
-            dest_dir = Path(settings.upload_dir) / str(company_id) / compliance_type.value.lower()
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            dest_path = dest_dir / f"{uuid4()}_{safe_name}"
-            dest_path.write_bytes(data)
             return await compliance_repo.insert_document(
                 conn,
                 company_id,
                 compliance_type.value,
                 doc_type,
-                str(dest_path.resolve()),
+                storage_url,
             )
 
     async def add_output(

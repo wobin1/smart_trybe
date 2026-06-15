@@ -1,11 +1,11 @@
 from datetime import date
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import asyncpg
 from fastapi import HTTPException, UploadFile
 
-from app.core.config import settings
+from app.core.storage import build_upload_folder, upload_file
 from app.domain.enums import ComplianceStatus, ComplianceType
 from app.modules.bpp_state import repository as bpp_repo
 from app.modules.cac.repository import fetch_company_for_user
@@ -67,6 +67,11 @@ class BPPStateService:
     ) -> UUID:
         safe_name = Path(file.filename or "upload").name
         data = await file.read()
+        folder = build_upload_folder(
+            company_id=str(company_id),
+            compliance_type=ComplianceType.BPP_STATE.value,
+        )
+        storage_url = upload_file(data=data, filename=safe_name, folder=folder)
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -75,16 +80,10 @@ class BPPStateService:
                 engine = ComplianceEngine(conn)
                 _raise_prerequisites(await engine.missing_for_bpp(company_id))
 
-                dest_dir = Path(settings.upload_dir) / str(company_id) / "bpp_state"
-                dest_dir.mkdir(parents=True, exist_ok=True)
-                dest_path = dest_dir / f"{uuid4()}_{safe_name}"
-                dest_path.write_bytes(data)
-                storage_ref = str(dest_path.resolve())
-
                 return await reg_repo.insert_document(
                     conn,
                     company_id,
                     ComplianceType.BPP_STATE.value,
                     doc_type,
-                    storage_ref,
+                    storage_url,
                 )

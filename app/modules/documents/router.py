@@ -2,7 +2,7 @@ from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import (
@@ -69,15 +69,19 @@ async def view_company_document_file(
     user: CurrentUser = Depends(get_current_user_from_header_or_query),
     svc: DocumentService = Depends(get_document_service),
 ):
-    path, filename, media_type = await svc.open_document_file(
+    source, filename, media_type = await svc.open_document_file(
         company_id=company_id,
         document_id=document_id,
         user_id=user.id,
         role=user.role,
+        download=download,
     )
+    if isinstance(source, str):
+        return RedirectResponse(source, status_code=307)
+
     disposition = "attachment" if download else "inline"
     return FileResponse(
-        path,
+        source,
         media_type=media_type,
         filename=filename,
         headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
