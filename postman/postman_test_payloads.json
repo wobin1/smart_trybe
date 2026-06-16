@@ -6,7 +6,8 @@
     "For multipart endpoints, do not send JSON body; use form-data with keys exactly as documented.",
     "Use register/login response access_token for subsequent requests.",
     "CAC workflow tests: run Create CAC Company first, then CAC NEW or CAC RENEWAL blocks in order.",
-    "Admin section: login as admin (ADMIN_EMAILS + register + restart), then run Admin requests."
+    "Admin section: login as admin (ADMIN_EMAILS + register + restart), then run Admin requests.",
+    "Agent section: login as agent (create via Admin or register with AGENT role), ensure company is assigned, then run Agent requests."
   ],
   "endpoints": [
     {
@@ -286,6 +287,97 @@
         "Authorization": "Bearer <access_token>"
       },
       "json_payload": null
+    },
+    {
+      "name": "Agent \u2014 List Assigned Companies",
+      "method": "GET",
+      "uri": "/api/v1/agent/companies",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Agent \u2014 Get Assigned Company Detail",
+      "method": "GET",
+      "uri": "/api/v1/agent/companies/{company_id}",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Agent \u2014 Get Assigned Company Progress",
+      "method": "GET",
+      "uri": "/api/v1/agent/companies/{company_id}/progress",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Agent \u2014 Upload Workflow Document",
+      "method": "POST",
+      "uri": "/api/v1/agent/companies/{company_id}/workflows/FIRS/documents",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "multipart_form_data": {
+        "doc_type": "TAX_CLEARANCE",
+        "file": "<select-file-in-postman>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Agent \u2014 Update Workflow Status",
+      "method": "PATCH",
+      "uri": "/api/v1/agent/companies/{company_id}/workflows/FIRS/NEW/status",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "status": "IN_PROGRESS",
+        "current_step": 2
+      }
+    },
+    {
+      "name": "Agent \u2014 Complete Workflow",
+      "method": "POST",
+      "uri": "/api/v1/agent/companies/{company_id}/workflows/FIRS/NEW/complete",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "expiry_date": "2027-12-31"
+      }
+    },
+    {
+      "name": "Agent \u2014 Add Workflow Output",
+      "method": "POST",
+      "uri": "/api/v1/agent/companies/{company_id}/workflows/FIRS/NEW/outputs",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "output_type": "CERTIFICATE_NUMBER",
+        "output_value": "FIRS-2026-001234"
+      }
+    },
+    {
+      "name": "Agent \u2014 Update Company Registry",
+      "method": "PUT",
+      "uri": "/api/v1/agent/companies/{company_id}/registry/FIRS",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "status": "ACTIVE",
+        "expiry_date": "2027-12-31"
+      }
     },
     {
       "name": "Get Current User",
@@ -1143,6 +1235,103 @@
             "Authorization": "Bearer <access_token>"
           },
           "json_payload": null
+        }
+      ]
+    },
+    {
+      "name": "Agent",
+      "description": "Requires agent Bearer token (role AGENT or ADMIN). Admin must assign the agent to a company before company-scoped requests succeed.",
+      "endpoints": [
+        {
+          "name": "Agent \u2014 List Assigned Companies",
+          "method": "GET",
+          "uri": "/api/v1/agent/companies",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Agent \u2014 Get Assigned Company Detail",
+          "method": "GET",
+          "uri": "/api/v1/agent/companies/{company_id}",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Agent \u2014 Get Assigned Company Progress",
+          "method": "GET",
+          "uri": "/api/v1/agent/companies/{company_id}/progress",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Agent \u2014 Upload Workflow Document",
+          "method": "POST",
+          "uri": "/api/v1/agent/companies/{company_id}/workflows/FIRS/documents",
+          "headers": {
+            "Authorization": "Bearer <access_token>"
+          },
+          "multipart_form_data": {
+            "doc_type": "TAX_CLEARANCE",
+            "file": "<select-file-in-postman>"
+          },
+          "json_payload": null
+        },
+        {
+          "name": "Agent \u2014 Update Workflow Status",
+          "method": "PATCH",
+          "uri": "/api/v1/agent/companies/{company_id}/workflows/FIRS/NEW/status",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "status": "IN_PROGRESS",
+            "current_step": 2
+          }
+        },
+        {
+          "name": "Agent \u2014 Complete Workflow",
+          "method": "POST",
+          "uri": "/api/v1/agent/companies/{company_id}/workflows/FIRS/NEW/complete",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "expiry_date": "2027-12-31"
+          }
+        },
+        {
+          "name": "Agent \u2014 Add Workflow Output",
+          "method": "POST",
+          "uri": "/api/v1/agent/companies/{company_id}/workflows/FIRS/NEW/outputs",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "output_type": "CERTIFICATE_NUMBER",
+            "output_value": "FIRS-2026-001234"
+          }
+        },
+        {
+          "name": "Agent \u2014 Update Company Registry",
+          "method": "PUT",
+          "uri": "/api/v1/agent/companies/{company_id}/registry/FIRS",
+          "headers": {
+            "Authorization": "Bearer <access_token>",
+            "Content-Type": "application/json"
+          },
+          "json_payload": {
+            "status": "ACTIVE",
+            "expiry_date": "2027-12-31"
+          }
         }
       ]
     }

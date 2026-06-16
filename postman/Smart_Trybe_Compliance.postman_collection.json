@@ -1457,6 +1457,178 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Agent",
+      "description": "Requires agent token (role AGENT or ADMIN). Assign agent to company via Admin before company-scoped requests.",
+      "item": [
+        {
+          "name": "Companies",
+          "item": [
+            {
+              "name": "GET list assigned companies",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/agent/companies"
+              }
+            },
+            {
+              "name": "GET assigned company detail",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}"
+              }
+            },
+            {
+              "name": "GET assigned company progress",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}/progress"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Workflows",
+          "item": [
+            {
+              "name": "POST upload workflow document",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "doc_type",
+                      "value": "TAX_CLEARANCE",
+                      "type": "text"
+                    },
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": ""
+                    }
+                  ]
+                },
+                "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}/workflows/FIRS/documents"
+              }
+            },
+            {
+              "name": "PATCH update workflow status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"IN_PROGRESS\",\n  \"current_step\": 2\n}"
+                },
+                "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}/workflows/FIRS/NEW/status"
+              }
+            },
+            {
+              "name": "POST complete workflow",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"expiry_date\": \"2027-12-31\"\n}"
+                },
+                "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}/workflows/FIRS/NEW/complete"
+              }
+            },
+            {
+              "name": "POST add workflow output",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"output_type\": \"CERTIFICATE_NUMBER\",\n  \"output_value\": \"FIRS-2026-001234\"\n}"
+                },
+                "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}/workflows/FIRS/NEW/outputs"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registry",
+          "item": [
+            {
+              "name": "PUT update company registry",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"ACTIVE\",\n  \"expiry_date\": \"2027-12-31\"\n}"
+                },
+                "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}/registry/FIRS"
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }
