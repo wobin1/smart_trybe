@@ -4,6 +4,7 @@ import logging
 import asyncpg
 
 from app.core.config import settings
+from app.modules.catalog.bootstrap import seed_compliance_catalog
 from app.modules.workflow.bootstrap import seed_workflow_templates
 
 logger = logging.getLogger(__name__)
@@ -47,4 +48,7 @@ async def bootstrap_database(pool: asyncpg.Pool) -> None:
         logger.info("Bootstrapping database: seeding workflow templates")
         seeded_count = await seed_workflow_templates(conn)
         logger.info("Bootstrapping database: seeded %s workflow templates", seeded_count)
+        logger.info("Bootstrapping database: seeding compliance catalog")
+        catalog_count = await seed_compliance_catalog(conn)
+        logger.info("Bootstrapping database: seeded %s catalog items", catalog_count)
     logger.info("Bootstrapping database: complete")

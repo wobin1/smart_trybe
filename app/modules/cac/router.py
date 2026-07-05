@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.api.deps import CurrentUser, db_pool, get_agent_or_admin_user, get_current_user
-from app.domain.enums import ComplianceStatus
+from app.domain.enums import CompanyRegistrationType, ComplianceStatus
 from app.modules.cac.service import CACService
 
 
@@ -18,6 +18,7 @@ class CompanyCreate(BaseModel):
     rc_number: str | None = None
     tin: str | None = None
     address: str | None = None
+    registration_type: CompanyRegistrationType | None = None
 
 
 class CompanyUpdate(BaseModel):
@@ -47,6 +48,7 @@ async def create_company(
         rc_number=body.rc_number,
         tin=body.tin,
         address=body.address,
+        registration_type=body.registration_type,
         user_id=user.id,
         role=user.role,
     )

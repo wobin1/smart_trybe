@@ -90,6 +90,20 @@ WORKFLOW_STEP_DEFINITIONS: dict[tuple[ComplianceType, ComplianceMode], list[str]
         "Fill compliance questionnaire (transactions, clients, etc.)",
         "Submit application",
     ],
+    (ComplianceType.BPP_FEDERAL, ComplianceMode.REGISTRATION): [
+        "Confirm prerequisite compliances (FIRS TCC, PENCOM, ITF, NSITF)",
+        "Provide company and contractor details",
+        "Upload required federal registration documents",
+        "Review and confirm application",
+        "Submit for federal BPP registration",
+    ],
+    (ComplianceType.BPP_STATE, ComplianceMode.REGISTRATION): [
+        "Confirm prerequisite compliances (FIRS TCC, PENCOM, ITF, NSITF)",
+        "Provide company and state contractor details",
+        "Upload required state registration documents",
+        "Review and confirm application",
+        "Submit for state BPP registration",
+    ],
 }
 
 REQUIRED_DOCS: dict[tuple[ComplianceType, ComplianceMode], set[str]] = {
@@ -123,5 +137,24 @@ REQUIRED_DOCS: dict[tuple[ComplianceType, ComplianceMode], set[str]] = {
         "DIRECTOR_VALID_ID",
         "UTILITY_BILL",
         "TIN",
+    },
+    (ComplianceType.BPP_FEDERAL, ComplianceMode.REGISTRATION): {
+        "CAC_CERTIFICATE",
+        "TIN",
+        "FIRS_TCC",
+        "PENCOM_CERTIFICATE",
+        "ITF_CERTIFICATE",
+        "NSITF_CERTIFICATE",
+        "COMPANY_PROFILE",
+    },
+    (ComplianceType.BPP_STATE, ComplianceMode.REGISTRATION): {
+        "CAC_CERTIFICATE",
+        "TIN",
+        "FIRS_TCC",
+        "PENCOM_CERTIFICATE",
+        "ITF_CERTIFICATE",
+        "NSITF_CERTIFICATE",
+        "STATE_TIN",
+        "COMPANY_PROFILE",
     },
 }

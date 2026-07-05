@@ -60,16 +60,39 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$
+BEGIN
+    CREATE TYPE oauth_provider AS ENUM (
+        'google'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT,
     full_name TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     role user_role NOT NULL DEFAULT 'CLIENT',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+
+CREATE TABLE IF NOT EXISTS user_oauth_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    provider oauth_provider NOT NULL,
+    provider_user_id TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (provider, provider_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_oauth_accounts_user
+    ON user_oauth_accounts (user_id);
 
 CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email));
 
@@ -181,3 +204,154 @@ CREATE TABLE IF NOT EXISTS compliance_outputs (
 
 CREATE INDEX IF NOT EXISTS idx_outputs_workflow
     ON compliance_outputs (workflow_id);
+
+DO $$
+BEGIN
+    CREATE TYPE company_registration_type AS ENUM (
+        'EXISTING',
+        'NEW'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    CREATE TYPE cart_status AS ENUM (
+        'OPEN',
+        'CHECKOUT',
+        'PAID',
+        'CANCELLED'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    CREATE TYPE payment_status AS ENUM (
+        'PENDING',
+        'COMPLETED',
+        'FAILED'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS registration_type company_registration_type;
+
+CREATE TABLE IF NOT EXISTS compliance_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT,
+    display_order INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS compliance_catalog (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    compliance_type compliance_type NOT NULL,
+    mode compliance_mode NOT NULL,
+    category_id UUID NOT NULL REFERENCES compliance_categories (id) ON DELETE RESTRICT,
+    display_name TEXT NOT NULL,
+    description TEXT,
+    icon_key TEXT,
+    base_price_ngn NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (compliance_type, mode)
+);
+
+CREATE INDEX IF NOT EXISTS idx_catalog_category
+    ON compliance_catalog (category_id);
+
+CREATE TABLE IF NOT EXISTS compliance_carts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID NOT NULL REFERENCES companies (id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    status cart_status NOT NULL DEFAULT 'OPEN',
+    shared_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE compliance_carts ADD COLUMN IF NOT EXISTS shared_data JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_one_open_cart_per_company
+    ON compliance_carts (company_id)
+    WHERE status = 'OPEN';
+
+CREATE INDEX IF NOT EXISTS idx_carts_company
+    ON compliance_carts (company_id);
+
+CREATE TABLE IF NOT EXISTS compliance_cart_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cart_id UUID NOT NULL REFERENCES compliance_carts (id) ON DELETE CASCADE,
+    compliance_type compliance_type NOT NULL,
+    mode compliance_mode NOT NULL,
+    unit_price_ngn NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (cart_id, compliance_type, mode)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cart_items_cart
+    ON compliance_cart_items (cart_id);
+
+CREATE TABLE IF NOT EXISTS compliance_payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cart_id UUID NOT NULL REFERENCES compliance_carts (id) ON DELETE CASCADE,
+    payment_reference TEXT,
+    total_amount_ngn NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    status payment_status NOT NULL DEFAULT 'PENDING',
+    breakdown JSONB NOT NULL DEFAULT '[]'::jsonb,
+    paid_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payments_cart
+    ON compliance_payments (cart_id);
+
+ALTER TABLE compliance_payments ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'manual';
+ALTER TABLE compliance_payments ADD COLUMN IF NOT EXISTS provider_reference TEXT;
+ALTER TABLE compliance_payments ADD COLUMN IF NOT EXISTS authorization_url TEXT;
+ALTER TABLE compliance_payments ADD COLUMN IF NOT EXISTS provider_payload JSONB;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_provider_reference
+    ON compliance_payments (provider_reference)
+    WHERE provider_reference IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS compliance_entitlements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID NOT NULL REFERENCES companies (id) ON DELETE CASCADE,
+    compliance_type compliance_type NOT NULL,
+    mode compliance_mode NOT NULL,
+    payment_id UUID NOT NULL REFERENCES compliance_payments (id) ON DELETE CASCADE,
+    amount_ngn NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    consumed_at TIMESTAMPTZ,
+    workflow_id UUID REFERENCES compliance_workflows (id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_entitlements_company_type_mode
+    ON compliance_entitlements (company_id, compliance_type, mode)
+    WHERE consumed_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_entitlements_payment
+    ON compliance_entitlements (payment_id);
+
+CREATE INDEX IF NOT EXISTS idx_registry_expiry
+    ON compliance_registry (expiry_date)
+    WHERE expiry_date IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS company_data (
+    company_id UUID NOT NULL REFERENCES companies (id) ON DELETE CASCADE,
+    data_key TEXT NOT NULL,
+    value JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (company_id, data_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_company_data_company
+    ON company_data (company_id);

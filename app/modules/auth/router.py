@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, EmailStr, Field
 
 from app.api.deps import CurrentUser, db_pool, get_current_user
-from app.domain.enums import UserRole
+from app.domain.enums import OAuthProvider, UserRole
 from app.modules.access.company import resolve_user_role
 from app.modules.auth.service import AuthService
 
@@ -22,6 +22,11 @@ class RegisterBody(BaseModel):
 class LoginBody(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=1, max_length=128)
+
+
+class OAuthLoginBody(BaseModel):
+    id_token: str = Field(..., min_length=1)
+    full_name: str | None = None
 
 
 class TokenResponse(BaseModel):
@@ -52,6 +57,20 @@ async def register(body: RegisterBody, svc: AuthService = Depends(get_auth_servi
 @router.post("/login")
 async def login(body: LoginBody, svc: AuthService = Depends(get_auth_service)):
     token = await svc.login(email=str(body.email), password=body.password)
+    return TokenResponse(access_token=token)
+
+
+@router.post("/oauth/{provider}")
+async def oauth_login(
+    provider: OAuthProvider,
+    body: OAuthLoginBody,
+    svc: AuthService = Depends(get_auth_service),
+):
+    token = await svc.oauth_login(
+        provider=provider,
+        id_token=body.id_token,
+        full_name=body.full_name,
+    )
     return TokenResponse(access_token=token)
 
 

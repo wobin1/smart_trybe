@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.core.security import hash_password
 from app.domain.enums import UserRole
 from app.modules.cac.repository import fetch_company_by_id
+from app.modules.notifications.service import NotificationService
 from app.modules.users import repository as users_repo
 
 
@@ -97,12 +98,35 @@ class UserManagementService:
                     agent_user_id=agent_user_id,
                     assigned_by=assigned_by,
                 )
-                return {
+                company = await fetch_company_by_id(conn, company_id)
+                agent = await users_repo.fetch_user_by_id(conn, agent_user_id)
+                owner = await conn.fetchrow(
+                    """
+                    SELECT u.email AS owner_email
+                    FROM companies c
+                    JOIN users u ON u.id = c.user_id
+                    WHERE c.id = $1
+                    """,
+                    company_id,
+                )
+                assignment = {
                     "company_id": str(row["company_id"]),
                     "agent_user_id": str(row["agent_user_id"]),
                     "assigned_by": str(row["assigned_by"]) if row["assigned_by"] else None,
                     "assigned_at": row["assigned_at"].isoformat(),
                 }
+
+        NotificationService.emit(
+            "agent.assigned",
+            {
+                **assignment,
+                "company_name": company["name"] if company else None,
+                "agent_email": agent["email"] if agent else None,
+                "agent_name": agent["full_name"] if agent else None,
+                "owner_email": owner["owner_email"] if owner else None,
+            },
+        )
+        return assignment
 
     async def unassign_agent(self, *, company_id: UUID, agent_user_id: UUID) -> dict:
         async with self._pool.acquire() as conn:

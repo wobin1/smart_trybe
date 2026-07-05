@@ -5,7 +5,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from pydantic import BaseModel, Field
 
-from app.api.deps import CurrentUser, db_pool, get_current_user
+from app.api.deps import CurrentUser, db_pool, get_agent_user, get_current_user
 from app.domain.enums import ComplianceStatus
 from app.modules.bpp_state.service import BPPStateService
 
@@ -28,7 +28,7 @@ async def get_bpp_state_registry(
     user: CurrentUser = Depends(get_current_user),
     svc: BPPStateService = Depends(get_bpp_state_service),
 ):
-    row = await svc.get_registry(company_id, user.id)
+    row = await svc.get_registry(company_id, user.id, user.role)
     if row is None:
         return {
             "company_id": str(company_id),
@@ -48,13 +48,13 @@ async def get_bpp_state_registry(
 async def put_bpp_state_registry(
     company_id: UUID,
     body: BPPStateRegistryBody,
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_agent_user),
     svc: BPPStateService = Depends(get_bpp_state_service),
 ):
     await svc.upsert_registry(
-        company_id, user.id, status=body.status, expiry_date=body.expiry_date
+        company_id, user.id, user.role, status=body.status, expiry_date=body.expiry_date
     )
-    row = await svc.get_registry(company_id, user.id)
+    row = await svc.get_registry(company_id, user.id, user.role)
     assert row is not None
     return {
         "company_id": str(row["company_id"]),
@@ -73,5 +73,7 @@ async def upload_bpp_state_document(
     user: CurrentUser = Depends(get_current_user),
     svc: BPPStateService = Depends(get_bpp_state_service),
 ):
-    doc_id = await svc.upload_document(company_id, user.id, doc_type=doc_type, file=file)
+    doc_id = await svc.upload_document(
+        company_id, user.id, user.role, doc_type=doc_type, file=file
+    )
     return {"id": str(doc_id)}

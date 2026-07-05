@@ -1,0 +1,1448 @@
+{
+  "info": {
+    "name": "Smart Trybe — Complete System Flow",
+    "description": "End-to-end flow covering the full Smart Trybe compliance platform.\n\n**Run folders in order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8**\n\n**Covers:** client registration, multi-company, catalog, cart/checkout, Paystack initialize (or dev pay), workflow steps/form + prefill, documents, client submit, role dashboards, admin agent assignment, agent completion, Zoho notification triggers.\n\n**Before running**\n1. API running at `{{base_url}}` (default http://localhost:8000)\n2. Admin exists: register with email in `ADMIN_EMAILS`, restart server\n3. Set `admin_email` / `admin_password` collection variables\n4. For document uploads (folder 4), attach any PDF in Postman file fields\n5. Dev payment: `PAYMENT_DEV_MODE=true` — use step 3.8. Production: use 3.7 then Paystack UI, webhook completes payment (skip 3.8)\n\n**Auto-saved variables:** tokens, company_id, cart_id, payment_id, agent_user_id",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "admin_email", "value": "admin@admin.com" },
+    { "key": "admin_password", "value": "yourpassword123" },
+    { "key": "client_token", "value": "" },
+    { "key": "admin_token", "value": "" },
+    { "key": "agent_token", "value": "" },
+    { "key": "company_id", "value": "" },
+    { "key": "company_id_2", "value": "" },
+    { "key": "cart_id", "value": "" },
+    { "key": "payment_id", "value": "" },
+    { "key": "payment_reference", "value": "" },
+    { "key": "agent_user_id", "value": "" },
+    { "key": "client_email", "value": "" },
+    { "key": "client_password", "value": "SecurePass123!" },
+    { "key": "agent_email", "value": "" },
+    { "key": "agent_password", "value": "SecurePass123!" },
+    { "key": "compliance_type", "value": "FIRS" },
+    { "key": "compliance_mode", "value": "NEW" }
+  ],
+  "item": [
+    {
+      "name": "0 — Setup (Admin + Agent)",
+      "item": [
+        {
+          "name": "0.1 Admin login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Admin login OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('admin_token', pm.response.json().access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "0.2 Create agent user",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('agent_email', `agent-${Date.now()}@example.com`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Agent created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('agent_user_id', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{agent_email}}\",\n  \"password\": \"{{agent_password}}\",\n  \"full_name\": \"Compliance Agent\",\n  \"role\": \"AGENT\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/admin/users"
+          }
+        },
+        {
+          "name": "0.3 Agent login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Agent login OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('agent_token', pm.response.json().access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{agent_email}}\",\n  \"password\": \"{{agent_password}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "0.4 GET admin dashboard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Admin dashboard OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Role is ADMIN', () => pm.expect(pm.response.json().role).to.eql('ADMIN'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard"
+          }
+        }
+      ]
+    },
+    {
+      "name": "1 — Client: Account & Companies",
+      "item": [
+        {
+          "name": "1.0 GET health",
+          "request": { "method": "GET", "url": "{{base_url}}/health" }
+        },
+        {
+          "name": "1.1 Register client",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('client_email', `client-${Date.now()}@example.com`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Registered', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('client_token', pm.response.json().access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{client_email}}\",\n  \"password\": \"{{client_password}}\",\n  \"full_name\": \"Smart Trybe Client\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "1.2 GET me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Me OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Role CLIENT', () => pm.expect(pm.response.json().role).to.eql('CLIENT'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/auth/me"
+          }
+        },
+        {
+          "name": "1.3 POST company (existing — with RC)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Company created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('company_id', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Compliance Ltd\",\n  \"rc_number\": \"RC-ST-2026-001\",\n  \"tin\": \"12345678-0001\",\n  \"address\": \"15 Broad Street, Lagos\",\n  \"registration_type\": \"EXISTING\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cac/companies"
+          }
+        },
+        {
+          "name": "1.4 POST second company (NEW CAC registration)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Second company created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('company_id_2', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Startup Ventures Ltd\",\n  \"registration_type\": \"NEW\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cac/companies"
+          }
+        },
+        {
+          "name": "1.5 GET list companies",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('List OK', () => pm.response.to.have.status(200));",
+                  "pm.test('At least 2 companies', () => pm.expect(pm.response.json().length).to.be.at.least(2));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/cac/companies"
+          }
+        },
+        {
+          "name": "1.6 GET company detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/cac/companies/{{company_id}}"
+          }
+        },
+        {
+          "name": "1.7 PATCH company",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"15 Broad Street, Lagos Island, Lagos\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cac/companies/{{company_id}}"
+          }
+        },
+        {
+          "name": "1.8 GET CAC registry",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/cac/companies/{{company_id}}/registry"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 — Catalog",
+      "item": [
+        {
+          "name": "2.1 GET categories",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/catalog/categories"
+          }
+        },
+        {
+          "name": "2.2 GET all catalog items",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/catalog/items?category=all"
+          }
+        },
+        {
+          "name": "2.3 GET FIRS/NEW catalog item",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/catalog/items/FIRS/NEW"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3 — Cart, Payment & Shared Data",
+      "item": [
+        {
+          "name": "3.1 PUT company data (prefill source)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Data saved', () => pm.response.to.have.status(200));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"rc_number\": \"RC-ST-2026-001\",\n    \"company_address\": \"15 Broad Street, Lagos Island, Lagos\",\n    \"contact_email\": \"compliance@acme.ng\",\n    \"contact_phone\": \"+2348012345678\",\n    \"directors\": [{ \"name\": \"Ada Okonkwo\", \"email\": \"ada@acme.ng\", \"phone\": \"+2348098765432\", \"nin\": \"12345678901\" }],\n    \"business_activity\": \"Software development and IT consulting\"\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/companies/{{company_id}}/data"
+          }
+        },
+        {
+          "name": "3.2 GET company data",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/companies/{{company_id}}/data"
+          }
+        },
+        {
+          "name": "3.3 GET empty cart",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}"
+          }
+        },
+        {
+          "name": "3.4 POST add FIRS/NEW to cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Item added', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "if (j.cart) pm.collectionVariables.set('cart_id', j.cart.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compliance_type\": \"FIRS\",\n  \"mode\": \"NEW\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items"
+          }
+        },
+        {
+          "name": "3.5 POST add ITF/NEW to cart (multi-compliance)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compliance_type\": \"ITF\",\n  \"mode\": \"NEW\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items"
+          }
+        },
+        {
+          "name": "3.6 GET cart (with subtotal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cart has items', () => pm.expect(pm.response.json().items.length).to.eql(2));",
+                  "pm.test('Subtotal > 0', () => pm.expect(pm.response.json().subtotal_ngn).to.be.above(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}"
+          }
+        },
+        {
+          "name": "3.7 POST checkout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Checkout OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('payment_id', j.payment_id);",
+                  "pm.test('Total matches breakdown', () => {",
+                  "  const sum = j.breakdown.reduce((a, i) => a + i.amount_ngn, 0);",
+                  "  pm.expect(j.total_amount_ngn).to.eql(sum);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/checkout"
+          }
+        },
+        {
+          "name": "3.8 POST initialize Paystack payment",
+          "description": "Production: open authorization_url in browser. Dev: skip to 3.9 if PAYMENT_DEV_MODE=true.",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/initialize-payment"
+          }
+        },
+        {
+          "name": "3.9 POST confirm payment (dev mode — starts workflows)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('payment_reference', `PAY-${Date.now()}`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Payment completed', () => pm.response.to.have.status(200));",
+                  "pm.test('Workflows started', () => pm.expect(pm.response.json().workflows_started.length).to.be.at.least(1));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"payment_reference\": \"{{payment_reference}}\",\n  \"start_workflows\": true\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/pay"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4 — Client: FIRS/NEW Workflow",
+      "item": [
+        {
+          "name": "4.1 GET workflow template",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/workflow/templates/FIRS/NEW"
+          }
+        },
+        {
+          "name": "4.2 GET all company progress",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/workflow/companies/{{company_id}}/progress"
+          }
+        },
+        {
+          "name": "4.3 GET step 1 form (prefill)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Form OK', () => pm.response.to.have.status(200));",
+                  "const fields = pm.response.json().fields;",
+                  "const rc = fields.find(f => f.key === 'cac_rc_number');",
+                  "pm.test('RC prefilled from company_data', () => {",
+                  "  pm.expect(rc.filled).to.be.true;",
+                  "  pm.expect(rc.value).to.eql('RC-ST-2026-001');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/steps/form?step_number=1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workflow", "FIRS", "NEW", "companies", "{{company_id}}", "steps", "form"],
+              "query": [{ "key": "step_number", "value": "1" }]
+            }
+          }
+        },
+        {
+          "name": "4.4 PUT step 1 draft",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": { \"cac_rc_number\": \"RC-ST-2026-001\" }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/steps/1/draft"
+          }
+        },
+        {
+          "name": "4.5 POST complete step 1 — CAC details",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Provide CAC details\",\n  \"data\": { \"cac_rc_number\": \"RC-ST-2026-001\" }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/steps/1/complete"
+          }
+        },
+        {
+          "name": "4.6 POST complete step 2 — Business address",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Provide business address\",\n  \"data\": { \"business_address\": \"15 Broad Street, Lagos Island, Lagos\" }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/steps/2/complete"
+          }
+        },
+        {
+          "name": "4.7 POST complete step 3 — Contact details",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Provide contact details\",\n  \"data\": {\n    \"contact_email\": \"compliance@acme.ng\",\n    \"contact_phone\": \"+2348012345678\"\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/steps/3/complete"
+          }
+        },
+        {
+          "name": "4.8 POST complete step 4 — Nature of business",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Confirm nature of business\",\n  \"data\": { \"nature_of_business\": \"Software development and IT consulting\" }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/steps/4/complete"
+          }
+        },
+        {
+          "name": "4.9 POST complete step 5 — Submit application",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Submit application\",\n  \"data\": { \"application_notes\": \"Complete flow test\" }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/steps/5/complete"
+          }
+        },
+        {
+          "name": "4.10 Upload CAC_CERTIFICATE",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "doc_type", "value": "CAC_CERTIFICATE", "type": "text" },
+                { "key": "file", "type": "file", "src": "", "description": "Attach any PDF" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/companies/{{company_id}}/documents"
+          }
+        },
+        {
+          "name": "4.11 Upload CAC_STATUS_REPORT",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "doc_type", "value": "CAC_STATUS_REPORT", "type": "text" },
+                { "key": "file", "type": "file", "src": "" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/companies/{{company_id}}/documents"
+          }
+        },
+        {
+          "name": "4.12 Upload DIRECTOR_DETAILS",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "doc_type", "value": "DIRECTOR_DETAILS", "type": "text" },
+                { "key": "file", "type": "file", "src": "" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/companies/{{company_id}}/documents"
+          }
+        },
+        {
+          "name": "4.13 GET document library",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/companies/{{company_id}}/documents?compliance_type=FIRS"
+          }
+        },
+        {
+          "name": "4.14 GET FIRS workflow status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/status"
+          }
+        },
+        {
+          "name": "4.15 POST submit FIRS (client → IN_REVIEW)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Submitted', () => pm.response.to.have.status(200));",
+                  "pm.test('IN_REVIEW', () => pm.expect(pm.response.json().status).to.eql('IN_REVIEW'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/submit"
+          }
+        }
+      ]
+    },
+    {
+      "name": "PG — Payment Gate Test",
+      "description": "Quick test that submit requires payment but start does not.\n\nRun **PG.1 → PG.8** in order.\n\nRequires `PAYMENT_DEV_MODE=true` for PG.7.\n\n**PG.4** → 403, `PAYMENT` in `detail.missing`.\n**PG.8** → 403 (steps/docs), but **no** `PAYMENT` in missing.",
+      "item": [
+        {
+          "name": "PG.1 Register client",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('client_email', `gate-${Date.now()}@example.com`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Registered', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('client_token', pm.response.json().access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{client_email}}\",\n  \"password\": \"{{client_password}}\",\n  \"full_name\": \"Gate Test Client\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "PG.2 Create company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Company created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('company_id', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Payment Gate Test Ltd\",\n  \"registration_type\": \"NEW\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cac/companies"
+          }
+        },
+        {
+          "name": "PG.3 Start FIRS workflow (no payment required)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Started', () => pm.response.to.have.status(200));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/start"
+          }
+        },
+        {
+          "name": "PG.4 Submit WITHOUT payment — expect PAYMENT blocked",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Submit blocked (403)', () => pm.response.to.have.status(403));",
+                  "const detail = pm.response.json().detail;",
+                  "pm.test('PAYMENT in missing', () => {",
+                  "  pm.expect(detail.missing.some(m => m.includes('PAYMENT'))).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/submit"
+          }
+        },
+        {
+          "name": "PG.5 Add FIRS/NEW to cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compliance_type\": \"FIRS\",\n  \"mode\": \"NEW\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items"
+          }
+        },
+        {
+          "name": "PG.6 Checkout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('payment_id', pm.response.json().payment_id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/checkout"
+          }
+        },
+        {
+          "name": "PG.7 Confirm payment (dev mode)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('payment_reference', `PAY-GATE-${Date.now()}`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Payment completed', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"payment_reference\": \"{{payment_reference}}\",\n  \"start_workflows\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/pay"
+          }
+        },
+        {
+          "name": "PG.8 Submit AFTER payment — PAYMENT must NOT be in missing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Still 403 (steps/docs likely incomplete)', () => pm.response.to.have.status(403));",
+                  "const missing = pm.response.json().detail.missing;",
+                  "pm.test('PAYMENT not in missing', () => {",
+                  "  pm.expect(missing.some(m => m.includes('PAYMENT'))).to.be.false;",
+                  "});",
+                  "console.log('Missing requirements:', JSON.stringify(missing));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/submit"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5 — Client: Dashboard",
+      "item": [
+        {
+          "name": "5.1 GET client dashboard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Dashboard OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Role CLIENT', () => pm.expect(pm.response.json().role || 'CLIENT').to.eql('CLIENT'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard"
+          }
+        },
+        {
+          "name": "5.2 GET company dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard/companies/{{company_id}}"
+          }
+        },
+        {
+          "name": "5.3 GET renewals",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard/renewals?days=90"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6 — Admin: Assign & Oversight",
+      "item": [
+        {
+          "name": "6.1 Admin login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('admin_token', pm.response.json().access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "6.2 GET all companies",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/admin/companies"
+          }
+        },
+        {
+          "name": "6.3 GET company detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/admin/companies/{{company_id}}"
+          }
+        },
+        {
+          "name": "6.4 GET company workflow progress",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const firs = pm.response.json().workflows.find(w => w.compliance_type === 'FIRS');",
+                  "pm.test('FIRS IN_REVIEW', () => pm.expect(firs.status).to.eql('IN_REVIEW'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/admin/companies/{{company_id}}/workflow-progress"
+          }
+        },
+        {
+          "name": "6.5 POST assign agent to company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Assigned', () => pm.response.to.have.status(201));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agent_user_id\": \"{{agent_user_id}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/admin/companies/{{company_id}}/assign-agent"
+          }
+        },
+        {
+          "name": "6.6 GET company agent assignments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/admin/companies/{{company_id}}/assignments"
+          }
+        },
+        {
+          "name": "6.7 GET admin catalog items",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/admin/catalog/items?category=all"
+          }
+        },
+        {
+          "name": "6.8 GET admin dashboard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Admin dashboard', () => pm.response.to.have.status(200));",
+                  "pm.test('Role ADMIN', () => pm.expect(pm.response.json().role).to.eql('ADMIN'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7 — Agent: Process & Complete",
+      "item": [
+        {
+          "name": "7.1 Agent login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('agent_token', pm.response.json().access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{agent_email}}\",\n  \"password\": \"{{agent_password}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "7.2 GET agent dashboard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Agent dashboard', () => pm.response.to.have.status(200));",
+                  "pm.test('Role AGENT', () => pm.expect(pm.response.json().role).to.eql('AGENT'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{agent_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard"
+          }
+        },
+        {
+          "name": "7.3 GET assigned companies",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{agent_token}}" }],
+            "url": "{{base_url}}/api/v1/agent/companies"
+          }
+        },
+        {
+          "name": "7.4 GET company detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{agent_token}}" }],
+            "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}"
+          }
+        },
+        {
+          "name": "7.5 GET company progress",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{agent_token}}" }],
+            "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}/progress"
+          }
+        },
+        {
+          "name": "7.6 PATCH workflow status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{agent_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_REVIEW\",\n  \"current_step\": 5\n}"
+            },
+            "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}/workflows/FIRS/NEW/status"
+          }
+        },
+        {
+          "name": "7.7 POST add TIN output",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{agent_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"output_type\": \"TIN\",\n  \"output_value\": \"12345678-0001\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}/workflows/FIRS/NEW/outputs"
+          }
+        },
+        {
+          "name": "7.8 POST complete FIRS workflow",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Completed', () => pm.response.to.have.status(200));",
+                  "pm.test('COMPLETED', () => pm.expect(pm.response.json().status).to.eql('COMPLETED'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{agent_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expiry_date\": \"2027-12-31\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}/workflows/FIRS/NEW/complete"
+          }
+        },
+        {
+          "name": "7.9 PUT registry FIRS → COMPLETED",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{agent_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"COMPLETED\",\n  \"expiry_date\": \"2027-12-31\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/agent/companies/{{company_id}}/registry/FIRS"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8 — Verify Final State",
+      "item": [
+        {
+          "name": "8.1 Client login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('client_token', pm.response.json().access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{client_email}}\",\n  \"password\": \"{{client_password}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "8.2 GET FIRS status — COMPLETED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('COMPLETED', () => pm.expect(pm.response.json().workflow.status).to.eql('COMPLETED'));",
+                  "pm.test('TIN output', () => {",
+                  "  pm.expect(pm.response.json().outputs.some(o => o.output_type === 'TIN')).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/status"
+          }
+        },
+        {
+          "name": "8.3 GET company data (shared fields persisted)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('RC persisted', () => pm.expect(pm.response.json().data.rc_number).to.eql('RC-ST-2026-001'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/companies/{{company_id}}/data"
+          }
+        },
+        {
+          "name": "8.4 GET client dashboard (final)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard"
+          }
+        },
+        {
+          "name": "8.5 GET ITF workflow progress (started from cart)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reference — All Endpoint Groups",
+      "description": "Standalone requests for other compliance types and routes not exercised in the main flow. Run individually as needed.",
+      "item": [
+        {
+          "name": "Workflow — start any compliance",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/workflow/{{compliance_type}}/{{compliance_mode}}/companies/{{company_id}}/start"
+          }
+        },
+        {
+          "name": "Workflow — GET steps/form",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow/{{compliance_type}}/{{compliance_mode}}/companies/{{company_id}}/steps/form?step_number=1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workflow", "{{compliance_type}}", "{{compliance_mode}}", "companies", "{{company_id}}", "steps", "form"],
+              "query": [{ "key": "step_number", "value": "1" }]
+            }
+          }
+        },
+        {
+          "name": "BPP Federal — start REGISTRATION workflow",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/workflow/BPP_FEDERAL/REGISTRATION/companies/{{company_id}}/start"
+          }
+        },
+        {
+          "name": "BPP Federal — GET registry",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/bpp/federal/companies/{{company_id}}/registry"
+          }
+        },
+        {
+          "name": "Documents — reuse across compliance",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"document_id\": \"<document-uuid>\",\n  \"compliance_type\": \"ITF\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/companies/{{company_id}}/documents/reuse"
+          }
+        },
+        {
+          "name": "Admin — PATCH catalog price",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"base_price_ngn\": 75000,\n  \"display_name\": \"FIRS New Registration\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/admin/catalog/items/FIRS/NEW"
+          }
+        },
+        {
+          "name": "Admin — list users (AGENT)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/admin/users?role=AGENT"
+          }
+        },
+        {
+          "name": "Cart — remove item",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{client_token}}" }],
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items/{{cart_item_id}}"
+          }
+        },
+        {
+          "name": "Webhooks — Paystack (manual test)",
+          "description": "Simulate Paystack charge.success. Set x-paystack-signature HMAC-SHA512 of raw body using PAYSTACK_SECRET_KEY.",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"charge.success\",\n  \"data\": {\n    \"reference\": \"<paystack-reference>\",\n    \"amount\": 7500000,\n    \"metadata\": { \"payment_id\": \"{{payment_id}}\" }\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/webhooks/paystack"
+          }
+        }
+      ]
+    }
+  ]
+}

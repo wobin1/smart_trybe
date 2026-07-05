@@ -266,6 +266,28 @@ async def fetch_template_step(
     )
 
 
+async def fetch_template_step_by_name(
+    conn: asyncpg.Connection,
+    compliance_type: str,
+    mode: str,
+    step_name: str,
+) -> asyncpg.Record | None:
+    return await conn.fetchrow(
+        """
+        SELECT s.step_number, s.step_name
+        FROM workflow_templates t
+        JOIN workflow_template_steps s ON s.template_id = t.id
+        WHERE t.compliance_type = $1::compliance_type
+          AND t.mode = $2::compliance_mode
+          AND t.is_active = TRUE
+          AND TRIM(LOWER(s.step_name)) = TRIM(LOWER($3))
+        """,
+        compliance_type,
+        mode,
+        step_name,
+    )
+
+
 async def list_workflow_templates(conn: asyncpg.Connection) -> list[asyncpg.Record]:
     return await conn.fetch(
         """

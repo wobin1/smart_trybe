@@ -15,6 +15,10 @@ class UserRole(str, Enum):
     ADMIN = "ADMIN"
 
 
+class OAuthProvider(str, Enum):
+    GOOGLE = "google"
+
+
 class ComplianceType(str, Enum):
     CAC = "CAC"
     FIRS = "FIRS"
@@ -33,3 +37,21 @@ class ComplianceMode(str, Enum):
     RENEWAL = "RENEWAL"
     PROCESS = "PROCESS"
     REGISTRATION = "REGISTRATION"
+
+
+class CompanyRegistrationType(str, Enum):
+    EXISTING = "EXISTING"
+    NEW = "NEW"
+
+
+class CartStatus(str, Enum):
+    OPEN = "OPEN"
+    CHECKOUT = "CHECKOUT"
+    PAID = "PAID"
+    CANCELLED = "CANCELLED"
+
+
+class PaymentStatus(str, Enum):
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"

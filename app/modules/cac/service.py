@@ -6,7 +6,7 @@ import asyncpg
 from fastapi import HTTPException, UploadFile
 
 from app.core.storage import build_upload_folder, upload_file
-from app.domain.enums import ComplianceStatus, ComplianceType, UserRole
+from app.domain.enums import CompanyRegistrationType, ComplianceStatus, ComplianceType, UserRole
 from app.modules.access.company import (
     require_company_agent,
     require_company_client,
@@ -35,14 +35,28 @@ class CACService:
         rc_number: str | None,
         tin: str | None,
         address: str | None,
+        registration_type: CompanyRegistrationType | None,
         user_id: UUID,
         role: UserRole,
     ) -> UUID:
         if role != UserRole.CLIENT:
             raise HTTPException(status_code=403, detail="Only clients can create companies")
+        resolved_type = registration_type
+        if resolved_type is None:
+            resolved_type = (
+                CompanyRegistrationType.EXISTING
+                if rc_number
+                else CompanyRegistrationType.NEW
+            )
         async with self._pool.acquire() as conn:
             company_id = await company_repo.insert_company(
-                conn, name=name, rc_number=rc_number, tin=tin, address=address, user_id=user_id
+                conn,
+                name=name,
+                rc_number=rc_number,
+                tin=tin,
+                address=address,
+                user_id=user_id,
+                registration_type=resolved_type.value,
             )
             await reg_repo.upsert_registry_status(
                 conn,

@@ -16,7 +16,17 @@ from app.modules.access.company import (
 )
 from app.modules.compliance import repository as compliance_repo
 from app.modules.compliance.engine import ComplianceEngine
+from app.modules.cart.propagation import propagate_shared_step_data, sync_company_profile_from_shared
+from app.modules.company_data.merge import merge_step_data
+from app.modules.company_data.repository import (
+    extract_shared_values,
+    fetch_company_data_map,
+    upsert_company_data,
+)
+from app.modules.entitlements import repository as entitlements_repo
+from app.modules.notifications.service import NotificationService
 from app.modules.workflow.catalog import REQUIRED_DOCS, WORKFLOW_STEP_DEFINITIONS
+from app.modules.workflow.step_form import build_step_form_fields
 from app.modules.workflow.step_schemas import get_step_field_schema, validate_step_data
 
 
@@ -60,8 +70,17 @@ def _format_step_row(
     updated_at,
     compliance_type: ComplianceType,
     mode: ComplianceMode,
+    company_data: dict[str, Any] | None = None,
 ) -> dict:
     data = _parse_step_data(step_data)
+    if company_data:
+        data = merge_step_data(
+            step_data=data,
+            company_data=company_data,
+            compliance_type=compliance_type,
+            mode=mode,
+            step_number=step_number,
+        )
     return {
         "step_number": step_number,
         "step_name": step_name,
@@ -183,8 +202,21 @@ class WorkflowService:
                         conn, wf["id"], step_number, expected, step_data
                     )
 
+                await upsert_company_data(
+                    conn, company_id, extract_shared_values(step_data)
+                )
+                propagated = await propagate_shared_step_data(
+                    conn,
+                    company_id=company_id,
+                    source_compliance_type=compliance_type,
+                    source_mode=mode,
+                    step_data=step_data,
+                )
+                await sync_company_profile_from_shared(conn, company_id, step_data)
+
                 row = await compliance_repo.fetch_step_progress(conn, wf["id"], step_number)
                 assert row is not None
+                company_data = await fetch_company_data_map(conn, company_id)
                 return _format_step_row(
                     step_number,
                     expected,
@@ -194,6 +226,7 @@ class WorkflowService:
                     updated_at=row["updated_at"],
                     compliance_type=compliance_type,
                     mode=mode,
+                    company_data=company_data,
                 )
 
     async def complete_step(
@@ -224,16 +257,36 @@ class WorkflowService:
                 payload = step_data if step_data is not None else {}
                 if not isinstance(payload, dict):
                     raise HTTPException(status_code=400, detail="data must be a JSON object")
+
+                company_data = await fetch_company_data_map(conn, company_id)
+                merged_payload = merge_step_data(
+                    step_data=payload,
+                    company_data=company_data,
+                    compliance_type=compliance_type,
+                    mode=mode,
+                    step_number=step_number,
+                )
                 try:
                     validate_step_data(
-                        compliance_type, mode, step_number, payload, require_all=True
+                        compliance_type, mode, step_number, merged_payload, require_all=True
                     )
                 except ValueError as exc:
                     raise HTTPException(status_code=400, detail=str(exc)) from exc
 
                 await compliance_repo.upsert_step_completion(
-                    conn, wf["id"], step_number, expected, payload
+                    conn, wf["id"], step_number, expected, merged_payload
                 )
+                await upsert_company_data(
+                    conn, company_id, extract_shared_values(merged_payload)
+                )
+                await propagate_shared_step_data(
+                    conn,
+                    company_id=company_id,
+                    source_compliance_type=compliance_type,
+                    source_mode=mode,
+                    step_data=merged_payload,
+                )
+                await sync_company_profile_from_shared(conn, company_id, merged_payload)
                 completed = await compliance_repo.count_completed_steps(conn, wf["id"])
                 current_step = min(completed, wf["total_steps"])
                 await compliance_repo.mark_workflow_status(
@@ -319,6 +372,7 @@ class WorkflowService:
             wf = _ensure_workflow(
                 await compliance_repo.fetch_workflow(conn, company_id, compliance_type.value, mode.value)
             )
+            company_data = await fetch_company_data_map(conn, company_id)
             steps = await compliance_repo.list_template_steps_with_progress(
                 conn, wf["id"], compliance_type.value, mode.value
             )
@@ -345,6 +399,7 @@ class WorkflowService:
                         updated_at=s["updated_at"],
                         compliance_type=compliance_type,
                         mode=mode,
+                        company_data=company_data,
                     )
                     for s in steps
                 ],
@@ -358,6 +413,87 @@ class WorkflowService:
                     }
                     for o in outputs
                 ],
+            }
+
+    async def get_step_form(
+        self,
+        *,
+        company_id: UUID,
+        user_id: UUID,
+        role: UserRole,
+        compliance_type: ComplianceType,
+        mode: ComplianceMode,
+        step_name: str | None = None,
+        step_number: int | None = None,
+    ) -> dict:
+        if step_name is None and step_number is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Provide step_name or step_number query parameter",
+            )
+
+        async with self._pool.acquire() as conn:
+            _ensure_company(await require_company_read(conn, company_id, user_id, role))
+
+            if step_number is not None:
+                template_step = await compliance_repo.fetch_template_step(
+                    conn, compliance_type.value, mode.value, step_number
+                )
+            else:
+                assert step_name is not None
+                template_step = await compliance_repo.fetch_template_step_by_name(
+                    conn, compliance_type.value, mode.value, step_name
+                )
+
+            if template_step is None:
+                raise HTTPException(status_code=404, detail="Workflow step not found")
+
+            resolved_number = int(template_step["step_number"])
+            resolved_name = str(template_step["step_name"])
+
+            wf = await compliance_repo.fetch_workflow(
+                conn, company_id, compliance_type.value, mode.value
+            )
+            if wf is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Workflow not found. Start it first or complete cart payment.",
+                )
+
+            progress = await compliance_repo.fetch_step_progress(conn, wf["id"], resolved_number)
+            step_data = _parse_step_data(progress["step_data"] if progress else None)
+            company_data = await fetch_company_data_map(conn, company_id)
+
+            fields, missing_required, merged_data = build_step_form_fields(
+                compliance_type=compliance_type,
+                mode=mode,
+                step_number=resolved_number,
+                step_data=step_data,
+                company_data=company_data,
+            )
+
+            return {
+                "company_id": str(company_id),
+                "workflow_id": str(wf["id"]),
+                "compliance_type": compliance_type.value,
+                "mode": mode.value,
+                "step_number": resolved_number,
+                "step_name": resolved_name,
+                "is_completed": bool(progress and progress["is_completed"]),
+                "fields": fields,
+                "data": merged_data,
+                "missing_required": missing_required,
+                "ready_to_complete": len(missing_required) == 0,
+                "save": {
+                    "method": "PUT",
+                    "path": f"/api/v1/workflow/{compliance_type.value}/{mode.value}/companies/{company_id}/steps/{resolved_number}/draft",
+                    "body": {"data": {"<field_key>": "<value>"}},
+                },
+                "complete": {
+                    "method": "POST",
+                    "path": f"/api/v1/workflow/{compliance_type.value}/{mode.value}/companies/{company_id}/steps/{resolved_number}/complete",
+                    "body": {"step_name": resolved_name, "data": {"<field_key>": "<value>"}},
+                },
             }
 
     async def list_templates(self) -> list[dict]:
@@ -422,6 +558,7 @@ class WorkflowService:
 
     async def _build_company_progress(self, conn: asyncpg.Connection, company_id: UUID) -> dict:
         templates = await compliance_repo.list_workflow_templates(conn)
+        company_data = await fetch_company_data_map(conn, company_id)
         instances = {
             _workflow_key(w["compliance_type"], w["mode"]): w
             for w in await compliance_repo.list_workflows_for_company(conn, company_id)
@@ -454,6 +591,7 @@ class WorkflowService:
                         updated_at=None,
                         compliance_type=ct_enum,
                         mode=mode_enum,
+                        company_data=company_data,
                     )
                     for s in template_steps
                 ]
@@ -473,6 +611,7 @@ class WorkflowService:
                         updated_at=s["updated_at"],
                         compliance_type=ct_enum,
                         mode=mode_enum,
+                        company_data=company_data,
                     )
                     for s in await compliance_repo.list_template_steps_with_progress(
                         conn, workflow_id, ct, mode
@@ -527,6 +666,16 @@ class WorkflowService:
                     await compliance_repo.fetch_workflow(conn, company_id, compliance_type.value, mode.value)
                 )
                 missing: list[str] = []
+
+                entitlement = await entitlements_repo.fetch_unconsumed_entitlement(
+                    conn,
+                    company_id=company_id,
+                    compliance_type=compliance_type.value,
+                    mode=mode.value,
+                )
+                if entitlement is None:
+                    missing.append("PAYMENT: compliance fee not paid")
+
                 completed = await compliance_repo.count_completed_steps(conn, wf["id"])
                 if completed < wf["total_steps"]:
                     missing.append(f"STEPS: {completed}/{wf['total_steps']}")
@@ -557,6 +706,18 @@ class WorkflowService:
                         },
                     )
 
+                assert entitlement is not None
+                consumed = await entitlements_repo.consume_entitlement(
+                    conn,
+                    entitlement_id=entitlement["id"],
+                    workflow_id=wf["id"],
+                )
+                if not consumed:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Payment entitlement already used for submission",
+                    )
+
                 await compliance_repo.mark_workflow_status(
                     conn, wf["id"], ComplianceStatus.IN_REVIEW.value, wf["total_steps"]
                 )
@@ -567,13 +728,33 @@ class WorkflowService:
                     ComplianceStatus.IN_REVIEW.value,
                     expiry_date,
                 )
-                return {
+
+                owner = await conn.fetchrow(
+                    """
+                    SELECT u.email AS owner_email, c.name AS company_name
+                    FROM companies c
+                    JOIN users u ON u.id = c.user_id
+                    WHERE c.id = $1
+                    """,
+                    company_id,
+                )
+                result = {
                     "company_id": str(company_id),
                     "compliance_type": compliance_type.value,
                     "mode": mode.value,
                     "status": ComplianceStatus.IN_REVIEW.value,
                     "expiry_date": expiry_date.isoformat() if expiry_date else None,
                 }
+
+        NotificationService.emit(
+            "workflow.submitted",
+            {
+                **result,
+                "owner_email": owner["owner_email"] if owner else None,
+                "company_name": owner["company_name"] if owner else None,
+            },
+        )
+        return result
 
     async def update_workflow_status(
         self,
@@ -634,13 +815,34 @@ class WorkflowService:
                     ComplianceStatus.COMPLETED.value,
                     expiry_date,
                 )
-                return {
+
+                owner = await conn.fetchrow(
+                    """
+                    SELECT u.email AS owner_email, c.name AS company_name
+                    FROM companies c
+                    JOIN users u ON u.id = c.user_id
+                    WHERE c.id = $1
+                    """,
+                    company_id,
+                )
+                result = {
                     "company_id": str(company_id),
                     "compliance_type": compliance_type.value,
                     "mode": mode.value,
                     "status": ComplianceStatus.COMPLETED.value,
                     "expiry_date": expiry_date.isoformat() if expiry_date else None,
                 }
+
+        NotificationService.emit(
+            "workflow.completed",
+            {
+                **result,
+                "owner_email": owner["owner_email"] if owner else None,
+                "company_name": owner["company_name"] if owner else None,
+                "completed_by_user_id": str(user_id),
+            },
+        )
+        return result
 
     async def update_registry(
         self,

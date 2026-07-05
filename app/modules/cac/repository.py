@@ -10,11 +10,12 @@ async def insert_company(
     tin: str | None,
     address: str | None,
     user_id: UUID,
+    registration_type: str | None = None,
 ) -> UUID:
     row = await conn.fetchrow(
         """
-        INSERT INTO companies (name, rc_number, tin, address, user_id)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO companies (name, rc_number, tin, address, user_id, registration_type)
+        VALUES ($1, $2, $3, $4, $5, $6::company_registration_type)
         RETURNING id
         """,
         name,
@@ -22,6 +23,7 @@ async def insert_company(
         tin,
         address,
         user_id,
+        registration_type,
     )
     assert row is not None
     return row["id"]

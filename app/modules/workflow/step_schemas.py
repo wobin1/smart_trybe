@@ -97,6 +97,137 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
             {"key": "tax_amount", "label": "Tax amount (NGN)", "type": "number", "required": False},
         ],
     },
+    (ComplianceType.ITF, ComplianceMode.NEW): {
+        1: [{"key": "employee_count", "label": "Number of employees", "type": "number", "required": True}],
+        2: [{"key": "staff_list_notes", "label": "Staff list notes", "type": "textarea", "required": False}],
+        3: [
+            {"key": "monthly_payroll_ngn", "label": "Estimated monthly payroll (NGN)", "type": "number", "required": True},
+            {"key": "annual_payroll_ngn", "label": "Estimated annual payroll (NGN)", "type": "number", "required": True},
+        ],
+        4: [{"key": "application_confirmed", "label": "Application confirmed", "type": "boolean", "required": True}],
+    },
+    (ComplianceType.ITF, ComplianceMode.RENEWAL): {
+        1: [{"key": "annual_payroll_ngn", "label": "Updated annual payroll (NGN)", "type": "number", "required": True}],
+        2: [{"key": "total_staff_salaries_ngn", "label": "Total staff salaries (NGN)", "type": "number", "required": True}],
+        3: [
+            {"key": "contribution_1_percent_ngn", "label": "1% ITF contribution (NGN)", "type": "number", "required": True},
+            {"key": "contribution_approved", "label": "Contribution approved", "type": "boolean", "required": True},
+        ],
+        4: [{"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False}],
+    },
+    (ComplianceType.NSITF, ComplianceMode.NEW): {
+        1: [{"key": "employee_count", "label": "Number of employees", "type": "number", "required": True}],
+        2: [{"key": "monthly_payroll_ngn", "label": "Monthly payroll (NGN)", "type": "number", "required": True}],
+        3: [{"key": "salary_structure_notes", "label": "Salary structure notes", "type": "textarea", "required": False}],
+        4: [{"key": "application_confirmed", "label": "Application confirmed", "type": "boolean", "required": True}],
+    },
+    (ComplianceType.NSITF, ComplianceMode.RENEWAL): {
+        1: [
+            {"key": "employee_count", "label": "Updated employee count", "type": "number", "required": True},
+            {"key": "annual_payroll_ngn", "label": "Updated annual payroll (NGN)", "type": "number", "required": True},
+        ],
+        2: [
+            {"key": "contribution_1_percent_ngn", "label": "1% NSITF contribution (NGN)", "type": "number", "required": True},
+            {"key": "contribution_approved", "label": "Contribution approved", "type": "boolean", "required": True},
+        ],
+        3: [{"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False}],
+    },
+    (ComplianceType.PENCOM, ComplianceMode.NEW): {
+        1: [{"key": "employee_count", "label": "Number of employees", "type": "number", "required": True}],
+        2: [
+            {
+                "key": "employees",
+                "label": "Employee details",
+                "type": "json",
+                "required": True,
+                "description": "Array of {name, rsa_pin, pfa}",
+            }
+        ],
+        3: [
+            {"key": "pfa_name", "label": "Pension Fund Administrator", "type": "text", "required": True},
+            {"key": "auto_assign_pfa", "label": "Allow system to assign PFA", "type": "boolean", "required": False},
+        ],
+        4: [{"key": "pension_setup_approved", "label": "Pension setup approved", "type": "boolean", "required": True}],
+    },
+    (ComplianceType.PENCOM, ComplianceMode.RENEWAL): {
+        1: [{"key": "monthly_remittance_confirmed", "label": "Monthly remittance confirmed", "type": "boolean", "required": True}],
+        2: [{"key": "payment_records_notes", "label": "Payment records notes", "type": "textarea", "required": False}],
+        3: [{"key": "compliance_approved", "label": "Compliance application approved", "type": "boolean", "required": True}],
+    },
+    (ComplianceType.GROUP_LIFE_INSURANCE, ComplianceMode.NEW): {
+        1: [{"key": "employee_count", "label": "Number of employees", "type": "number", "required": True}],
+        2: [{"key": "annual_payroll_ngn", "label": "Annual payroll (NGN)", "type": "number", "required": True}],
+        3: [
+            {"key": "insurance_quote_ngn", "label": "Insurance quote (NGN)", "type": "number", "required": True},
+            {"key": "quote_approved", "label": "Quote approved", "type": "boolean", "required": True},
+        ],
+        4: [{"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False}],
+    },
+    (ComplianceType.GROUP_LIFE_INSURANCE, ComplianceMode.RENEWAL): {
+        1: [{"key": "employee_count", "label": "Updated employee count", "type": "number", "required": True}],
+        2: [{"key": "annual_payroll_ngn", "label": "Updated annual payroll (NGN)", "type": "number", "required": True}],
+        3: [
+            {"key": "new_premium_ngn", "label": "New premium (NGN)", "type": "number", "required": True},
+            {"key": "premium_approved", "label": "Premium approved", "type": "boolean", "required": True},
+        ],
+        4: [{"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False}],
+    },
+    (ComplianceType.ACCOUNT_AUDITING, ComplianceMode.PROCESS): {
+        1: [
+            {"key": "financial_year", "label": "Financial year", "type": "text", "required": True},
+            {"key": "records_uploaded", "label": "Income/expense/bank records uploaded", "type": "boolean", "required": True},
+        ],
+        2: [
+            {"key": "total_revenue_ngn", "label": "Total revenue (NGN)", "type": "number", "required": True},
+            {"key": "total_expenses_ngn", "label": "Total expenses (NGN)", "type": "number", "required": True},
+            {"key": "financial_notes", "label": "Additional financial notes", "type": "textarea", "required": False},
+        ],
+        3: [{"key": "draft_accounts_approved", "label": "Draft accounts approved", "type": "boolean", "required": True}],
+    },
+    (ComplianceType.SCUML, ComplianceMode.REGISTRATION): {
+        1: [
+            {"key": "business_type", "label": "Business type (DNFB)", "type": "text", "required": True},
+            {"key": "is_designated_non_financial", "label": "Is designated non-financial business", "type": "boolean", "required": True},
+        ],
+        2: [
+            {"key": "cac_rc_number", "label": "CAC RC number", "type": "text", "required": True},
+            {"key": "business_address", "label": "Business address", "type": "textarea", "required": True},
+            {"key": "contact_email", "label": "Contact email", "type": "email", "required": True},
+        ],
+        3: [{"key": "documents_uploaded", "label": "Required documents uploaded", "type": "boolean", "required": True}],
+        4: [
+            {"key": "transaction_volume", "label": "Typical transaction volume", "type": "text", "required": True},
+            {"key": "client_types", "label": "Client types served", "type": "textarea", "required": True},
+            {"key": "compliance_questionnaire_notes", "label": "Questionnaire notes", "type": "textarea", "required": False},
+        ],
+        5: [{"key": "application_confirmed", "label": "Application confirmed", "type": "boolean", "required": True}],
+    },
+    (ComplianceType.BPP_FEDERAL, ComplianceMode.REGISTRATION): {
+        1: [{"key": "prerequisites_confirmed", "label": "Prerequisites confirmed", "type": "boolean", "required": True}],
+        2: [
+            {"key": "cac_rc_number", "label": "CAC RC number", "type": "text", "required": True},
+            {"key": "contractor_category", "label": "Contractor category", "type": "text", "required": True},
+            {"key": "business_address", "label": "Business address", "type": "textarea", "required": True},
+            {"key": "contact_email", "label": "Contact email", "type": "email", "required": True},
+            {"key": "contact_phone", "label": "Contact phone", "type": "text", "required": True},
+        ],
+        3: [{"key": "documents_uploaded", "label": "Required documents uploaded", "type": "boolean", "required": True}],
+        4: [{"key": "application_reviewed", "label": "Application reviewed", "type": "boolean", "required": True}],
+        5: [{"key": "application_confirmed", "label": "Application confirmed", "type": "boolean", "required": True}],
+    },
+    (ComplianceType.BPP_STATE, ComplianceMode.REGISTRATION): {
+        1: [{"key": "prerequisites_confirmed", "label": "Prerequisites confirmed", "type": "boolean", "required": True}],
+        2: [
+            {"key": "cac_rc_number", "label": "CAC RC number", "type": "text", "required": True},
+            {"key": "state_of_operation", "label": "State of operation", "type": "text", "required": True},
+            {"key": "contractor_category", "label": "Contractor category", "type": "text", "required": True},
+            {"key": "business_address", "label": "Business address", "type": "textarea", "required": True},
+            {"key": "contact_email", "label": "Contact email", "type": "email", "required": True},
+        ],
+        3: [{"key": "documents_uploaded", "label": "Required documents uploaded", "type": "boolean", "required": True}],
+        4: [{"key": "application_reviewed", "label": "Application reviewed", "type": "boolean", "required": True}],
+        5: [{"key": "application_confirmed", "label": "Application confirmed", "type": "boolean", "required": True}],
+    },
 }
 
 

@@ -23,6 +23,18 @@
     {
       "key": "agent_user_id",
       "value": ""
+    },
+    {
+      "key": "cart_id",
+      "value": ""
+    },
+    {
+      "key": "payment_id",
+      "value": ""
+    },
+    {
+      "key": "cart_item_id",
+      "value": ""
     }
   ],
   "item": [
@@ -116,6 +128,452 @@
       ]
     },
     {
+      "name": "Smart Cart — Full Test Flow",
+      "description": "Run requests top-to-bottom after Auth (register/login). Saves company_id, cart_id, payment_id automatically.\n\nFlow: browse catalog → add compliances to cart → shared fields → checkout → pay → verify data propagation across workflows → dashboard.",
+      "item": [
+        {
+          "name": "1. POST create company (existing)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.id) pm.collectionVariables.set('company_id', j.id);",
+                  "pm.test('Company created', () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smart Cart Test Ltd\",\n  \"rc_number\": \"RC-987654\",\n  \"tin\": \"98765432-0001\",\n  \"address\": \"Victoria Island, Lagos\",\n  \"registration_type\": \"EXISTING\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cac/companies"
+          }
+        },
+        {
+          "name": "2. GET catalog categories",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/catalog/categories"
+          }
+        },
+        {
+          "name": "3. GET catalog items (all)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/catalog/items?category=all"
+          }
+        },
+        {
+          "name": "4. POST cart add CAC/RENEWAL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.cart && j.cart.id) pm.collectionVariables.set('cart_id', j.cart.id);",
+                  "if (j.items && j.items[0]) pm.collectionVariables.set('cart_item_id', j.items[0].id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compliance_type\": \"CAC\",\n  \"mode\": \"RENEWAL\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items"
+          }
+        },
+        {
+          "name": "5. POST cart add FIRS/NEW",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compliance_type\": \"FIRS\",\n  \"mode\": \"NEW\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items"
+          }
+        },
+        {
+          "name": "6. POST cart add ITF/NEW",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compliance_type\": \"ITF\",\n  \"mode\": \"NEW\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items"
+          }
+        },
+        {
+          "name": "7. GET cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.cart && j.cart.id) pm.collectionVariables.set('cart_id', j.cart.id);",
+                  "if (j.items && j.items.length) pm.collectionVariables.set('cart_item_id', j.items[0].id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}"
+          }
+        },
+        {
+          "name": "8. GET company data (prefill source)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/companies/{{company_id}}/data"
+          }
+        },
+        {
+          "name": "9. PUT company data (save shared fields)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"company_address\": \"42 Marina Road, Lagos\",\n    \"rc_number\": \"RC-987654\",\n    \"contact_email\": \"ops@smartcart.ng\",\n    \"contact_phone\": \"+2348012345678\",\n    \"directors\": [\n      {\n        \"name\": \"Jane Doe\",\n        \"email\": \"jane@smartcart.ng\",\n        \"phone\": \"+2348098765432\",\n        \"nin\": \"12345678901\"\n      }\n    ]\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/companies/{{company_id}}/data"
+          }
+        },
+        {
+          "name": "10. POST checkout cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.payment_id) pm.collectionVariables.set('payment_id', j.payment_id);",
+                  "if (j.cart_id) pm.collectionVariables.set('cart_id', j.cart_id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/checkout"
+          }
+        },
+        {
+          "name": "11. POST confirm payment (starts workflows)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"payment_reference\": \"PAY-SMARTCART-2026-001\",\n  \"start_workflows\": true\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/pay"
+          }
+        },
+        {
+          "name": "12. POST start CAC/NEW (for propagation test)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/start"
+          }
+        },
+        {
+          "name": "13. POST complete CAC/NEW step 5 (address propagates)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Provide company address\",\n  \"data\": {\n    \"address\": \"12 Admiralty Way, Lekki Phase 1\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\"\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/CAC/NEW/companies/{{company_id}}/steps/5/complete"
+          }
+        },
+        {
+          "name": "14. GET FIRS/NEW status (verify propagated address)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const step2 = (j.steps || []).find(s => s.step_number === 2);",
+                  "pm.test('FIRS business_address pre-filled from CAC', () => {",
+                  "  pm.expect(step2 && step2.step_data.business_address).to.eql('12 Admiralty Way, Lekki Phase 1');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/status"
+          }
+        },
+        {
+          "name": "15. GET client dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard"
+          }
+        },
+        {
+          "name": "16. GET company dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard/companies/{{company_id}}"
+          }
+        },
+        {
+          "name": "17. GET upcoming renewals",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard/renewals?days=90"
+          }
+        },
+        {
+          "name": "18. GET workflow progress (all compliances)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/workflow/companies/{{company_id}}/progress"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "item": [
+        {
+          "name": "GET categories",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/catalog/categories"
+          }
+        },
+        {
+          "name": "GET items (all)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/catalog/items?category=all"
+          }
+        },
+        {
+          "name": "GET items (tax_finance)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/catalog/items?category=tax_finance"
+          }
+        },
+        {
+          "name": "GET item FIRS/NEW",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/catalog/items/FIRS/NEW"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "GET open cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.cart && j.cart.id) pm.collectionVariables.set('cart_id', j.cart.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}"
+          }
+        },
+        {
+          "name": "POST add item",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compliance_type\": \"FIRS\",\n  \"mode\": \"NEW\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items"
+          }
+        },
+        {
+          "name": "DELETE remove item",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items/{{cart_item_id}}"
+          }
+        },
+        {
+          "name": "GET company data",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/companies/{{company_id}}/data"
+          }
+        },
+        {
+          "name": "PUT company data",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"company_address\": \"42 Marina Road, Lagos\",\n    \"rc_number\": \"RC-987654\",\n    \"directors\": [{ \"name\": \"Jane Doe\", \"email\": \"jane@example.com\" }]\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/companies/{{company_id}}/data"
+          }
+        },
+        {
+          "name": "POST checkout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.payment_id) pm.collectionVariables.set('payment_id', j.payment_id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/checkout"
+          }
+        },
+        {
+          "name": "POST confirm payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"payment_reference\": \"PAY-TEST-001\",\n  \"start_workflows\": true\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/pay"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "GET client dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard"
+          }
+        },
+        {
+          "name": "GET company dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard/companies/{{company_id}}"
+          }
+        },
+        {
+          "name": "GET upcoming renewals",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard/renewals?days=90"
+          }
+        },
+        {
+          "name": "GET renewals for company",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/v1/dashboard/renewals?days=90&company_id={{company_id}}"
+          }
+        }
+      ]
+    },
+    {
       "name": "CAC",
       "item": [
         {
@@ -146,7 +604,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Nigeria Ltd\",\n  \"rc_number\": \"RC-123456\",\n  \"tin\": \"12345678-0001\",\n  \"address\": \"Victoria Island, Lagos\"\n}"
+              "raw": "{\n  \"name\": \"Acme Nigeria Ltd\",\n  \"rc_number\": \"RC-123456\",\n  \"tin\": \"12345678-0001\",\n  \"address\": \"Victoria Island, Lagos\",\n  \"registration_type\": \"EXISTING\"\n}"
             },
             "url": "{{base_url}}/api/v1/cac/companies"
           }

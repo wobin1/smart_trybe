@@ -17,6 +17,21 @@ class Settings(BaseSettings):
     admin_emails: str = ""
     public_api_base_url: str = "http://localhost:8000"
 
+    google_client_id: str = ""
+
+    # Paystack (set PAYMENT_DEV_MODE=true to allow manual POST /cart/.../pay without Paystack)
+    paystack_secret_key: str = ""
+    paystack_public_key: str = ""
+    payment_dev_mode: bool = True
+    paystack_callback_url: str = ""
+
+    # Zoho Flow — outbound webhooks for email/SMS automations (one URL per event, or leave blank to skip)
+    zoho_flow_webhook_payment: str = ""
+    zoho_flow_webhook_workflow_submitted: str = ""
+    zoho_flow_webhook_agent_assigned: str = ""
+    zoho_flow_webhook_workflow_completed: str = ""
+    zoho_flow_webhook_secret: str = ""
+
     def admin_email_set(self) -> set[str]:
         return {e.strip().lower() for e in self.admin_emails.split(",") if e.strip()}
 

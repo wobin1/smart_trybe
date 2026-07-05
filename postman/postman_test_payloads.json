@@ -6,10 +6,109 @@
     "For multipart endpoints, do not send JSON body; use form-data with keys exactly as documented.",
     "Use register/login response access_token for subsequent requests.",
     "CAC workflow tests: run Create CAC Company first, then CAC NEW or CAC RENEWAL blocks in order.",
+    "Smart Cart flow: Auth → Smart Cart — Full Test Flow folder (run 1–18 in order). Requires fresh client token.",
+    "Cart variables auto-saved: company_id, cart_id, payment_id, cart_item_id.",
     "Admin section: login as admin (ADMIN_EMAILS + register + restart), then run Admin requests.",
-    "Agent section: login as agent (create via Admin or register with AGENT role), ensure company is assigned, then run Agent requests."
+    "Agent section: login as agent (create via Admin or register with AGENT role), ensure company is assigned, then run Agent requests.",
+    "Full FIRS flow: import postman/FIRS_Complete_Flow.postman_collection.json — run folders 0→5 in order (attach PDFs for document uploads in folder 2)."
   ],
   "endpoints": [
+    {
+      "name": "Catalog — List Categories",
+      "method": "GET",
+      "uri": "/api/v1/catalog/categories",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "json_payload": null
+    },
+    {
+      "name": "Catalog — List Items (all)",
+      "method": "GET",
+      "uri": "/api/v1/catalog/items?category=all",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "json_payload": null
+    },
+    {
+      "name": "Catalog — List Items (tax_finance)",
+      "method": "GET",
+      "uri": "/api/v1/catalog/items?category=tax_finance",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "json_payload": null
+    },
+    {
+      "name": "Cart — Get Open Cart",
+      "method": "GET",
+      "uri": "/api/v1/cart/companies/{company_id}",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "json_payload": null
+    },
+    {
+      "name": "Cart — Add Item",
+      "method": "POST",
+      "uri": "/api/v1/cart/companies/{company_id}/items",
+      "headers": { "Authorization": "Bearer <access_token>", "Content-Type": "application/json" },
+      "json_payload": { "compliance_type": "FIRS", "mode": "NEW" }
+    },
+    {
+      "name": "Company Data — Get All Filled Fields",
+      "method": "GET",
+      "uri": "/api/v1/companies/{company_id}/data",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "json_payload": null
+    },
+    {
+      "name": "Company Data — Update Shared Fields",
+      "method": "PUT",
+      "uri": "/api/v1/companies/{company_id}/data",
+      "headers": { "Authorization": "Bearer <access_token>", "Content-Type": "application/json" },
+      "json_payload": {
+        "data": {
+          "company_address": "42 Marina Road, Lagos",
+          "rc_number": "RC-987654",
+          "contact_email": "ops@example.com",
+          "contact_phone": "+2348012345678",
+          "directors": [{ "name": "Jane Doe", "email": "jane@example.com" }]
+        }
+      }
+    },
+    {
+      "name": "Cart — Checkout",
+      "method": "POST",
+      "uri": "/api/v1/cart/companies/{company_id}/checkout",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "json_payload": null
+    },
+    {
+      "name": "Cart — Confirm Payment",
+      "method": "POST",
+      "uri": "/api/v1/cart/companies/{company_id}/pay",
+      "headers": { "Authorization": "Bearer <access_token>", "Content-Type": "application/json" },
+      "json_payload": {
+        "payment_id": "<payment-uuid-from-checkout>",
+        "payment_reference": "PAY-TEST-001",
+        "start_workflows": true
+      }
+    },
+    {
+      "name": "Dashboard — Client Summary",
+      "method": "GET",
+      "uri": "/api/v1/dashboard",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "json_payload": null
+    },
+    {
+      "name": "Dashboard — Company Summary",
+      "method": "GET",
+      "uri": "/api/v1/dashboard/companies/{company_id}",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "json_payload": null
+    },
+    {
+      "name": "Dashboard — Upcoming Renewals",
+      "method": "GET",
+      "uri": "/api/v1/dashboard/renewals?days=90",
+      "headers": { "Authorization": "Bearer <access_token>" },
+      "json_payload": null
+    },
     {
       "name": "List Workflow Templates",
       "method": "GET",
@@ -20,7 +119,28 @@
       "json_payload": null
     },
     {
-      "name": "Get Workflow Template By Type+Mode",
+      "name": "Get Workflow Step Form (schema + values)",
+      "method": "GET",
+      "uri": "/api/v1/workflow/FIRS/NEW/companies/{company_id}/steps/form?step_name=Provide CAC details",
+      "headers": {
+        "Authorization": "Bearer <access_token>"
+      },
+      "json_payload": null
+    },
+    {
+      "name": "Save Workflow Step Draft",
+      "method": "PUT",
+      "uri": "/api/v1/workflow/FIRS/NEW/companies/{company_id}/steps/1/draft",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/json"
+      },
+      "json_payload": {
+        "data": {
+          "cac_rc_number": "RC-FIRS-2026-001"
+        }
+      }
+    },
       "method": "GET",
       "uri": "/api/v1/workflow/templates/FIRS/RENEWAL",
       "headers": {
@@ -400,7 +520,8 @@
         "name": "Acme Nigeria Ltd",
         "rc_number": "RC-123456",
         "tin": "12345678-0001",
-        "address": "Victoria Island, Lagos"
+        "address": "Victoria Island, Lagos",
+        "registration_type": "EXISTING"
       }
     },
     {

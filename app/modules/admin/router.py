@@ -1,3 +1,4 @@
+from decimal import Decimal
 from uuid import UUID
 
 import asyncpg
@@ -5,8 +6,9 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, EmailStr, Field
 
 from app.api.deps import CurrentUser, db_pool, get_admin_user
-from app.domain.enums import UserRole
+from app.domain.enums import ComplianceMode, ComplianceType, UserRole
 from app.modules.admin.service import AdminService
+from app.modules.catalog.service import CatalogService
 from app.modules.users.service import UserManagementService
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -29,12 +31,62 @@ class AssignAgentBody(BaseModel):
     agent_user_id: UUID
 
 
+class UpdateCatalogItemBody(BaseModel):
+    base_price_ngn: Decimal | None = Field(default=None, ge=0)
+    display_name: str | None = Field(default=None, min_length=1)
+    description: str | None = None
+    icon_key: str | None = Field(default=None, min_length=1)
+    is_active: bool | None = None
+
+
 def get_admin_service(pool: asyncpg.Pool = Depends(db_pool)) -> AdminService:
     return AdminService(pool)
 
 
 def get_user_management_service(pool: asyncpg.Pool = Depends(db_pool)) -> UserManagementService:
     return UserManagementService(pool)
+
+
+def get_catalog_service(pool: asyncpg.Pool = Depends(db_pool)) -> CatalogService:
+    return CatalogService(pool)
+
+
+@router.get("/catalog/items")
+async def list_catalog_items_admin(
+    category: str | None = Query(default="all", description="Category slug or 'all'"),
+    _admin: CurrentUser = Depends(get_admin_user),
+    svc: CatalogService = Depends(get_catalog_service),
+):
+    return await svc.list_items_admin(category=category)
+
+
+@router.get("/catalog/items/{compliance_type}/{mode}")
+async def get_catalog_item_admin(
+    compliance_type: ComplianceType,
+    mode: ComplianceMode,
+    _admin: CurrentUser = Depends(get_admin_user),
+    svc: CatalogService = Depends(get_catalog_service),
+):
+    return await svc.get_item_admin(compliance_type.value, mode.value)
+
+
+@router.patch("/catalog/items/{compliance_type}/{mode}")
+async def update_catalog_item_admin(
+    compliance_type: ComplianceType,
+    mode: ComplianceMode,
+    body: UpdateCatalogItemBody,
+    _admin: CurrentUser = Depends(get_admin_user),
+    svc: CatalogService = Depends(get_catalog_service),
+):
+    return await svc.update_item_admin(
+        compliance_type.value,
+        mode.value,
+        base_price_ngn=body.base_price_ngn,
+        display_name=body.display_name,
+        description=body.description,
+        icon_key=body.icon_key,
+        is_active=body.is_active,
+    )
 
 
 @router.get("/users")

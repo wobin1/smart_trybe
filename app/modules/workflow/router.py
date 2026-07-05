@@ -2,7 +2,7 @@ from datetime import date
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.api.deps import CurrentUser, db_pool, get_agent_or_admin_user, get_current_user
@@ -179,6 +179,27 @@ async def add_workflow_output(
     return {"id": str(output_id)}
 
 
+@router.get("/{compliance_type}/{mode}/companies/{company_id}/steps/form")
+async def get_step_form(
+    compliance_type: ComplianceType,
+    mode: ComplianceMode,
+    company_id: UUID,
+    step_name: str | None = Query(default=None, description="Template step name, e.g. Provide CAC details"),
+    step_number: int | None = Query(default=None, ge=1, description="Alternative to step_name"),
+    user: CurrentUser = Depends(get_current_user),
+    svc: WorkflowService = Depends(get_workflow_service),
+):
+    return await svc.get_step_form(
+        company_id=company_id,
+        user_id=user.id,
+        role=user.role,
+        compliance_type=compliance_type,
+        mode=mode,
+        step_name=step_name,
+        step_number=step_number,
+    )
+
+
 @router.get("/{compliance_type}/{mode}/companies/{company_id}/status")
 async def get_workflow_status(
     compliance_type: ComplianceType,
@@ -201,7 +222,7 @@ async def submit_workflow(
     compliance_type: ComplianceType,
     mode: ComplianceMode,
     company_id: UUID,
-    body: SubmitBody,
+    body: SubmitBody = Body(default_factory=SubmitBody),
     user: CurrentUser = Depends(get_current_user),
     svc: WorkflowService = Depends(get_workflow_service),
 ):

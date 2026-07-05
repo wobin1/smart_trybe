@@ -6,7 +6,7 @@ import asyncpg
 async def insert_user(
     conn: asyncpg.Connection,
     email: str,
-    password_hash: str,
+    password_hash: str | None,
     full_name: str | None,
     *,
     role: str = "CLIENT",
@@ -48,4 +48,40 @@ async def fetch_user_by_id(conn: asyncpg.Connection, user_id: UUID) -> asyncpg.R
         WHERE id = $1
         """,
         user_id,
+    )
+
+
+async def fetch_oauth_account(
+    conn: asyncpg.Connection,
+    *,
+    provider: str,
+    provider_user_id: str,
+) -> asyncpg.Record | None:
+    return await conn.fetchrow(
+        """
+        SELECT oa.id, oa.user_id, oa.provider::text AS provider, oa.provider_user_id
+        FROM user_oauth_accounts oa
+        WHERE oa.provider = $1::oauth_provider
+          AND oa.provider_user_id = $2
+        """,
+        provider,
+        provider_user_id,
+    )
+
+
+async def insert_oauth_account(
+    conn: asyncpg.Connection,
+    *,
+    user_id: UUID,
+    provider: str,
+    provider_user_id: str,
+) -> None:
+    await conn.execute(
+        """
+        INSERT INTO user_oauth_accounts (user_id, provider, provider_user_id)
+        VALUES ($1, $2::oauth_provider, $3)
+        """,
+        user_id,
+        provider,
+        provider_user_id,
     )
