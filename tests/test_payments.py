@@ -72,6 +72,30 @@ def test_initialize_payment_dev_mode(client: TestClient, monkeypatch):
     assert init.json()["provider"] == "manual"
 
 
+def test_initialize_payment_dev_mode_ignores_placeholder_paystack(
+    client: TestClient, monkeypatch
+):
+    """PAYMENT_DEV_MODE=true must not call Paystack even if a secret key is set."""
+    monkeypatch.setenv("PAYMENT_DEV_MODE", "true")
+    monkeypatch.setenv("PAYSTACK_SECRET_KEY", "sk_test_xxxxxxxx")
+    from app.core.config import settings
+
+    settings.payment_dev_mode = True
+    settings.paystack_secret_key = "sk_test_xxxxxxxx"
+
+    _, headers = _register_client(client)
+    company_id, payment_id, _ = _checkout(client, headers)
+
+    init = client.post(
+        f"/api/v1/cart/companies/{company_id}/initialize-payment",
+        headers=headers,
+        json={"payment_id": payment_id},
+    )
+    assert init.status_code == 200
+    assert init.json()["dev_mode"] is True
+    assert init.json()["provider"] == "manual"
+
+
 def test_manual_pay_in_dev_mode(client: TestClient, monkeypatch):
     monkeypatch.setenv("PAYMENT_DEV_MODE", "true")
     monkeypatch.setenv("PAYSTACK_SECRET_KEY", "")

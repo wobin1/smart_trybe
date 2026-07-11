@@ -65,6 +65,35 @@ async def fetch_unconsumed_entitlement(
     )
 
 
+async def fetch_payment_entitlement(
+    conn: asyncpg.Connection,
+    *,
+    company_id: UUID,
+    compliance_type: str,
+    mode: str,
+) -> asyncpg.Record | None:
+    """Any completed-payment entitlement (consumed or not) — used for is_paid."""
+    return await conn.fetchrow(
+        """
+        SELECT e.id, e.company_id, e.compliance_type::text AS compliance_type,
+               e.mode::text AS mode, e.payment_id, e.amount_ngn, e.paid_at,
+               e.consumed_at, e.workflow_id,
+               p.payment_reference
+        FROM compliance_entitlements e
+        JOIN compliance_payments p ON p.id = e.payment_id
+        WHERE e.company_id = $1
+          AND e.compliance_type = $2::compliance_type
+          AND e.mode = $3::compliance_mode
+          AND p.status = 'COMPLETED'::payment_status
+        ORDER BY e.paid_at DESC
+        LIMIT 1
+        """,
+        company_id,
+        compliance_type,
+        mode,
+    )
+
+
 async def consume_entitlement(
     conn: asyncpg.Connection,
     *,

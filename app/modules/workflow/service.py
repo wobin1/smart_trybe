@@ -16,6 +16,7 @@ from app.modules.access.company import (
 )
 from app.modules.compliance import repository as compliance_repo
 from app.modules.compliance.engine import ComplianceEngine
+from app.modules.cart import repository as cart_repo
 from app.modules.cart.propagation import propagate_shared_step_data, sync_company_profile_from_shared
 from app.modules.company_data.merge import merge_step_data
 from app.modules.company_data.repository import (
@@ -29,9 +30,29 @@ from app.modules.workflow.catalog import REQUIRED_DOCS, WORKFLOW_STEP_DEFINITION
 from app.modules.workflow.step_form import build_step_form_fields
 from app.modules.workflow.step_schemas import get_step_field_schema, validate_step_data
 
+MAKE_PAYMENT_STEP_NAME = "Make payment"
+
 
 def _workflow_key(compliance_type: str, mode: str) -> tuple[str, str]:
     return compliance_type, mode
+
+
+def _payment_payload(entitlement: asyncpg.Record | None) -> dict:
+    if entitlement is None:
+        return {
+            "is_paid": False,
+            "payment_id": None,
+            "paid_at": None,
+            "consumed": False,
+            "payment_reference": None,
+        }
+    return {
+        "is_paid": True,
+        "payment_id": str(entitlement["payment_id"]),
+        "paid_at": entitlement["paid_at"].isoformat() if entitlement["paid_at"] else None,
+        "consumed": entitlement["consumed_at"] is not None,
+        "payment_reference": entitlement["payment_reference"],
+    }
 
 
 def _ensure_company(row: asyncpg.Record | None) -> asyncpg.Record:
@@ -254,6 +275,22 @@ class WorkflowService:
                 expected = await self._resolve_template_step(
                     conn, compliance_type, mode, step_number, step_name
                 )
+                if expected == MAKE_PAYMENT_STEP_NAME:
+                    entitlement = await entitlements_repo.fetch_payment_entitlement(
+                        conn,
+                        company_id=company_id,
+                        compliance_type=compliance_type.value,
+                        mode=mode.value,
+                    )
+                    if entitlement is None:
+                        raise HTTPException(
+                            status_code=402,
+                            detail=(
+                                "Payment required. Pay via cart checkout or "
+                                "POST .../checkout-payment — completing this step does not charge."
+                            ),
+                        )
+
                 payload = step_data if step_data is not None else {}
                 if not isinstance(payload, dict):
                     raise HTTPException(status_code=400, detail="data must be a JSON object")
@@ -297,6 +334,120 @@ class WorkflowService:
                         conn, company_id, compliance_type.value, mode.value
                     )
                 )
+
+    async def mark_make_payment_complete(
+        self,
+        *,
+        company_id: UUID,
+        user_id: UUID,
+        role: UserRole,
+        compliance_type: ComplianceType,
+        mode: ComplianceMode,
+        payment_reference: str,
+        payment_amount: float | None = None,
+        ensure_started: bool = True,
+    ) -> asyncpg.Record | None:
+        """Idempotently complete the Make payment step after cart payment succeeds."""
+        if ensure_started:
+            await self.start(
+                company_id=company_id,
+                user_id=user_id,
+                role=role,
+                compliance_type=compliance_type,
+                mode=mode,
+            )
+
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                wf = await compliance_repo.fetch_workflow(
+                    conn, company_id, compliance_type.value, mode.value
+                )
+                if wf is None:
+                    return None
+
+                template_step = await compliance_repo.fetch_template_step_by_name(
+                    conn, compliance_type.value, mode.value, MAKE_PAYMENT_STEP_NAME
+                )
+                if template_step is None:
+                    return wf
+
+                step_number = int(template_step["step_number"])
+                existing = await compliance_repo.fetch_step_progress(conn, wf["id"], step_number)
+                if existing and existing["is_completed"]:
+                    return wf
+
+                step_data: dict[str, Any] = {"payment_reference": payment_reference}
+                if payment_amount is not None:
+                    step_data["payment_amount"] = payment_amount
+
+                await compliance_repo.upsert_step_completion(
+                    conn,
+                    wf["id"],
+                    step_number,
+                    MAKE_PAYMENT_STEP_NAME,
+                    step_data,
+                )
+                completed = await compliance_repo.count_completed_steps(conn, wf["id"])
+                current_step = min(completed, wf["total_steps"])
+                await compliance_repo.mark_workflow_status(
+                    conn, wf["id"], ComplianceStatus.PENDING.value, current_step
+                )
+                return await compliance_repo.fetch_workflow(
+                    conn, company_id, compliance_type.value, mode.value
+                )
+
+    async def checkout_payment(
+        self,
+        *,
+        company_id: UUID,
+        user_id: UUID,
+        role: UserRole,
+        compliance_type: ComplianceType,
+        mode: ComplianceMode,
+    ) -> dict:
+        """Ensure this compliance is in cart, checkout, and initialize payment."""
+        from app.modules.cart.service import CartService
+
+        cart_svc = CartService(self._pool)
+
+        async with self._pool.acquire() as conn:
+            await require_company_client(conn, company_id, user_id, role)
+
+            checkout_cart = await cart_repo.fetch_checkout_cart(conn, company_id)
+            in_checkout = False
+            pending_payment_id: UUID | None = None
+            if checkout_cart is not None:
+                items = await cart_repo.list_cart_items(conn, checkout_cart["id"])
+                in_checkout = any(
+                    i["compliance_type"] == compliance_type.value and i["mode"] == mode.value
+                    for i in items
+                )
+                if in_checkout:
+                    payment = await cart_repo.fetch_latest_payment(conn, checkout_cart["id"])
+                    if payment is not None and payment["status"] == "PENDING":
+                        pending_payment_id = payment["id"]
+
+        if in_checkout and pending_payment_id is not None:
+            payment_id = pending_payment_id
+        else:
+            await cart_svc.add_item(
+                company_id=company_id,
+                user_id=user_id,
+                role=role,
+                compliance_type=compliance_type,
+                mode=mode,
+            )
+            checkout = await cart_svc.checkout(
+                company_id=company_id, user_id=user_id, role=role
+            )
+            payment_id = UUID(checkout["payment_id"])
+
+        return await cart_svc.initialize_payment(
+            company_id=company_id,
+            user_id=user_id,
+            role=role,
+            payment_id=payment_id,
+        )
 
     async def upload_document(
         self,
@@ -378,6 +529,12 @@ class WorkflowService:
             )
             docs = await compliance_repo.list_document_types(conn, company_id, compliance_type.value)
             outputs = await compliance_repo.list_workflow_outputs(conn, wf["id"])
+            entitlement = await entitlements_repo.fetch_payment_entitlement(
+                conn,
+                company_id=company_id,
+                compliance_type=compliance_type.value,
+                mode=mode.value,
+            )
             return {
                 "workflow": {
                     "id": str(wf["id"]),
@@ -389,6 +546,7 @@ class WorkflowService:
                     "total_steps": wf["total_steps"],
                     "last_updated": wf["last_updated"].isoformat(),
                 },
+                "payment": _payment_payload(entitlement),
                 "steps": [
                     _format_step_row(
                         s["step_number"],
@@ -472,6 +630,14 @@ class WorkflowService:
                 company_data=company_data,
             )
 
+            entitlement = await entitlements_repo.fetch_payment_entitlement(
+                conn,
+                company_id=company_id,
+                compliance_type=compliance_type.value,
+                mode=mode.value,
+            )
+            payment = _payment_payload(entitlement)
+
             return {
                 "company_id": str(company_id),
                 "workflow_id": str(wf["id"]),
@@ -480,6 +646,7 @@ class WorkflowService:
                 "step_number": resolved_number,
                 "step_name": resolved_name,
                 "is_completed": bool(progress and progress["is_completed"]),
+                "payment": payment,
                 "fields": fields,
                 "data": merged_data,
                 "missing_required": missing_required,

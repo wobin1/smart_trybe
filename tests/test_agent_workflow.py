@@ -149,7 +149,7 @@ def test_bpp_workflow_has_steps(client: TestClient):
         headers=headers,
     )
     assert start.status_code == 200
-    assert start.json()["total_steps"] == 5
+    assert start.json()["total_steps"] == 6
 
     form = client.get(
         f"/api/v1/workflow/BPP_FEDERAL/REGISTRATION/companies/{company_id}/steps/form",

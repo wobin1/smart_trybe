@@ -1,0 +1,711 @@
+{
+  "info": {
+    "name": "Payment is_paid + Make payment Flow",
+    "description": "Tests the unified Make payment / is_paid implementation.\n\n**Run folders separately (each folder is self-contained):**\n\n- **A — Multi-cart pay** — Add FIRS + ITF + NSITF to cart, pay once, assert `payment.is_paid` and Make payment step completed on **each** workflow.\n- **B — Pay after fill** — Start ITF/NEW, complete steps 1–4 (all data), confirm unpaid, try fake complete (402), then `checkout-payment` + `/pay`, assert paid.\n\n**Requirements**\n1. API at `{{base_url}}` (default http://localhost:8000)\n2. `PAYMENT_DEV_MODE=true` (uses `POST /cart/.../pay`)\n3. Restart API after catalog changes so templates re-seed\n\n**Auto-saved:** `client_token`, `company_id`, `payment_id`, `payment_reference`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "client_token", "value": "" },
+    { "key": "company_id", "value": "" },
+    { "key": "payment_id", "value": "" },
+    { "key": "payment_reference", "value": "" },
+    { "key": "client_email", "value": "" },
+    { "key": "client_password", "value": "SecurePass123!" }
+  ],
+  "item": [
+    {
+      "name": "A — Multi-cart pay (3 compliances → each is_paid)",
+      "description": "Pay once for FIRS + ITF + NSITF. Then open each workflow status and assert payment.is_paid + Make payment completed.",
+      "item": [
+        {
+          "name": "A.1 Register client",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('client_email', `pay-multi-${Date.now()}@example.com`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Registered', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('client_token', pm.response.json().access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{client_email}}\",\n  \"password\": \"{{client_password}}\",\n  \"full_name\": \"Multi Pay Client\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "A.2 Create company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Company created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('company_id', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Multi Pay Co Ltd\",\n  \"rc_number\": \"RC-MULTI-PAY-001\",\n  \"tin\": \"11111111-0001\",\n  \"address\": \"1 Cart Street, Lagos\",\n  \"registration_type\": \"EXISTING\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cac/companies"
+          }
+        },
+        {
+          "name": "A.3 Add FIRS/NEW to cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('FIRS added', () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compliance_type\": \"FIRS\",\n  \"mode\": \"NEW\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items"
+          }
+        },
+        {
+          "name": "A.4 Add ITF/NEW to cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('ITF added', () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compliance_type\": \"ITF\",\n  \"mode\": \"NEW\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items"
+          }
+        },
+        {
+          "name": "A.5 Add NSITF/NEW to cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('NSITF added', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.test('Cart has 3 items', () => pm.expect(j.items.length).to.eql(3));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compliance_type\": \"NSITF\",\n  \"mode\": \"NEW\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/items"
+          }
+        },
+        {
+          "name": "A.6 Checkout cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Checkout OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('payment_id', j.payment_id);",
+                  "pm.test('payment_id present', () => pm.expect(j.payment_id).to.be.ok);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/checkout"
+          }
+        },
+        {
+          "name": "A.7 Confirm payment (dev) — starts workflows + auto-completes Make payment",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('payment_reference', `PAY-MULTI-${Date.now()}`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Payment completed', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('status COMPLETED', () => pm.expect(j.status).to.eql('COMPLETED'));",
+                  "pm.test('3 workflows started', () => pm.expect(j.workflows_started.length).to.eql(3));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"payment_reference\": \"{{payment_reference}}\",\n  \"start_workflows\": true\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/pay"
+          }
+        },
+        {
+          "name": "A.8 FIRS status — is_paid + Make payment completed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('FIRS is_paid', () => pm.expect(j.payment.is_paid).to.be.true);",
+                  "pm.test('FIRS payment_id set', () => pm.expect(j.payment.payment_id).to.be.ok);",
+                  "const payStep = j.steps.find(s => s.step_name === 'Make payment');",
+                  "pm.test('FIRS has Make payment step', () => pm.expect(payStep).to.be.ok);",
+                  "pm.test('FIRS Make payment completed', () => pm.expect(payStep.is_completed).to.be.true);",
+                  "pm.test('FIRS last step is Make payment', () => {",
+                  "  pm.expect(j.steps[j.steps.length - 1].step_name).to.eql('Make payment');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/workflow/FIRS/NEW/companies/{{company_id}}/status"
+          }
+        },
+        {
+          "name": "A.9 ITF status — is_paid + Make payment completed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('ITF is_paid', () => pm.expect(j.payment.is_paid).to.be.true);",
+                  "const payStep = j.steps.find(s => s.step_name === 'Make payment');",
+                  "pm.test('ITF Make payment completed', () => pm.expect(payStep.is_completed).to.be.true);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/status"
+          }
+        },
+        {
+          "name": "A.10 NSITF status — is_paid + Make payment completed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('NSITF is_paid', () => pm.expect(j.payment.is_paid).to.be.true);",
+                  "const payStep = j.steps.find(s => s.step_name === 'Make payment');",
+                  "pm.test('NSITF Make payment completed', () => pm.expect(payStep.is_completed).to.be.true);",
+                  "pm.test('consumed still false (not submitted)', () => pm.expect(j.payment.consumed).to.be.false);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/workflow/NSITF/NEW/companies/{{company_id}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "B — Pay after filling all data (single compliance)",
+      "description": "Fill ITF/NEW steps 1–4 first (unpaid), prove Make payment cannot be faked, then pay via checkout-payment + /pay and assert is_paid.",
+      "item": [
+        {
+          "name": "B.1 Register client",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('client_email', `pay-after-${Date.now()}@example.com`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Registered', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('client_token', pm.response.json().access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{client_email}}\",\n  \"password\": \"{{client_password}}\",\n  \"full_name\": \"Pay After Fill Client\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "B.2 Create company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Company created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('company_id', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pay After Fill Ltd\",\n  \"rc_number\": \"RC-AFTER-FILL-001\",\n  \"address\": \"2 Workflow Ave, Abuja\",\n  \"registration_type\": \"EXISTING\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/cac/companies"
+          }
+        },
+        {
+          "name": "B.3 Start ITF/NEW (before payment)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Started', () => pm.response.to.have.status(200));",
+                  "pm.test('total_steps includes Make payment', () => {",
+                  "  pm.expect(pm.response.json().total_steps).to.eql(5);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/start"
+          }
+        },
+        {
+          "name": "B.4 Status before pay — is_paid false",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('is_paid false', () => pm.expect(j.payment.is_paid).to.be.false);",
+                  "const payStep = j.steps.find(s => s.step_name === 'Make payment');",
+                  "pm.test('Make payment not completed yet', () => pm.expect(payStep.is_completed).to.be.false);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/status"
+          }
+        },
+        {
+          "name": "B.5 Complete step 1 — employee count",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Step 1 done', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Confirm number of employees\",\n  \"data\": {\n    \"employee_count\": 25\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/steps/1/complete"
+          }
+        },
+        {
+          "name": "B.6 Complete step 2 — staff list notes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Step 2 done', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Upload staff list\",\n  \"data\": {\n    \"staff_list_notes\": \"Staff list prepared for ITF filing\"\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/steps/2/complete"
+          }
+        },
+        {
+          "name": "B.7 Complete step 3 — payroll estimate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Step 3 done', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Provide payroll estimate\",\n  \"data\": {\n    \"monthly_payroll_ngn\": 5000000,\n    \"annual_payroll_ngn\": 60000000\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/steps/3/complete"
+          }
+        },
+        {
+          "name": "B.8 Complete step 4 — submit application (confirm)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Step 4 done', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Submit application\",\n  \"data\": {\n    \"application_confirmed\": true\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/steps/4/complete"
+          }
+        },
+        {
+          "name": "B.9 Status after fill — still unpaid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('still is_paid false', () => pm.expect(j.payment.is_paid).to.be.false);",
+                  "const completed = j.steps.filter(s => s.is_completed);",
+                  "pm.test('4 of 5 steps done (not payment)', () => pm.expect(completed.length).to.eql(4));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/status"
+          }
+        },
+        {
+          "name": "B.10 Fake complete Make payment — expect 402",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Blocked with 402', () => pm.response.to.have.status(402));",
+                  "const detail = pm.response.json().detail;",
+                  "pm.test('Mentions payment / checkout-payment', () => {",
+                  "  pm.expect(String(detail).toLowerCase()).to.include('payment');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Make payment\",\n  \"data\": {\n    \"payment_reference\": \"FAKE-SHOULD-FAIL\"\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/steps/5/complete"
+          }
+        },
+        {
+          "name": "B.11 checkout-payment from Make payment step",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Checkout-payment OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('payment_id', j.payment_id);",
+                  "pm.test('payment_id returned', () => pm.expect(j.payment_id).to.be.ok);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/checkout-payment"
+          }
+        },
+        {
+          "name": "B.12 Confirm payment (dev)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('payment_reference', `PAY-AFTER-${Date.now()}`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Payment completed', () => pm.response.to.have.status(200));",
+                  "pm.test('COMPLETED', () => pm.expect(pm.response.json().status).to.eql('COMPLETED'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"payment_reference\": \"{{payment_reference}}\",\n  \"start_workflows\": true\n}"
+            },
+            "url": "{{base_url}}/api/v1/cart/companies/{{company_id}}/pay"
+          }
+        },
+        {
+          "name": "B.13 Status after pay — is_paid + Make payment completed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('is_paid true', () => pm.expect(j.payment.is_paid).to.be.true);",
+                  "pm.test('payment_reference set', () => pm.expect(j.payment.payment_reference).to.be.ok);",
+                  "const payStep = j.steps.find(s => s.step_name === 'Make payment');",
+                  "pm.test('Make payment auto-completed', () => pm.expect(payStep.is_completed).to.be.true);",
+                  "pm.test('step_data has payment_reference', () => {",
+                  "  pm.expect(payStep.step_data.payment_reference).to.be.ok;",
+                  "});",
+                  "const completed = j.steps.filter(s => s.is_completed);",
+                  "pm.test('all 5 steps completed', () => pm.expect(completed.length).to.eql(5));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/status"
+          }
+        },
+        {
+          "name": "B.14 Step form for Make payment — payment.is_paid true",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Form OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('form payment.is_paid', () => pm.expect(j.payment.is_paid).to.be.true);",
+                  "pm.test('step is_completed', () => pm.expect(j.is_completed).to.be.true);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{client_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow/ITF/NEW/companies/{{company_id}}/steps/form?step_number=5",
+              "host": ["{{base_url}}"],
+              "path": [
+                "api",
+                "v1",
+                "workflow",
+                "ITF",
+                "NEW",
+                "companies",
+                "{{company_id}}",
+                "steps",
+                "form"
+              ],
+              "query": [{ "key": "step_number", "value": "5" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

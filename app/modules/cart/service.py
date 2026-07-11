@@ -169,15 +169,17 @@ class CartService:
                 if user is None:
                     raise HTTPException(status_code=404, detail="User not found")
 
+                # Dev mode always skips live Paystack (even if a placeholder secret is set).
+                if settings_payment_dev_mode():
+                    return {
+                        "payment_id": str(payment_id),
+                        "provider": "manual",
+                        "dev_mode": True,
+                        "message": "Dev/manual payment — use POST /cart/companies/{id}/pay with a payment_reference",
+                        "total_amount_ngn": float(payment["total_amount_ngn"]),
+                    }
+
                 if not PaystackClient.configured():
-                    if settings_payment_dev_mode():
-                        return {
-                            "payment_id": str(payment_id),
-                            "provider": "manual",
-                            "dev_mode": True,
-                            "message": "Paystack not configured — use POST /cart/companies/{id}/pay with a payment_reference",
-                            "total_amount_ngn": float(payment["total_amount_ngn"]),
-                        }
                     raise HTTPException(status_code=503, detail="Paystack is not configured")
 
                 company = await conn.fetchrow(
@@ -349,6 +351,21 @@ class CartService:
                         "status": row["status"],
                     }
                 )
+
+        # Always mark Make payment complete for paid cart lines (pay-before or pay-after fill).
+        for item in items:
+            ct = ComplianceType(item["compliance_type"])
+            mode = ComplianceMode(item["mode"])
+            await workflow_svc.mark_make_payment_complete(
+                company_id=company_id,
+                user_id=user_id,
+                role=role,
+                compliance_type=ct,
+                mode=mode,
+                payment_reference=payment_reference,
+                payment_amount=float(item["unit_price_ngn"]),
+                ensure_started=True,
+            )
 
         breakdown = payment["breakdown"] if isinstance(payment["breakdown"], list) else json.loads(payment["breakdown"])
 

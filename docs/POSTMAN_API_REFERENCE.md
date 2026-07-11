@@ -228,10 +228,11 @@ Cross-compliance data reuse:
 |--------|-----|---------------|
 | GET | `/api/v1/workflow/templates/{compliance_type}/{mode}` | Template + step list |
 | POST | `/api/v1/workflow/{type}/{mode}/companies/{company_id}/start` | Start workflow |
-| GET | `/api/v1/workflow/{type}/{mode}/companies/{company_id}/steps/form?step_number=1` | Step form with prefill |
-| GET | `/api/v1/workflow/{type}/{mode}/companies/{company_id}/status` | Full workflow + steps |
+| GET | `/api/v1/workflow/{type}/{mode}/companies/{company_id}/steps/form?step_number=1` | Step form with prefill (+ `payment.is_paid`) |
+| GET | `/api/v1/workflow/{type}/{mode}/companies/{company_id}/status` | Full workflow + steps + `payment.is_paid` |
 | PUT | `/api/v1/workflow/{type}/{mode}/companies/{company_id}/steps/{n}/draft` | `{ "data": { ... } }` |
-| POST | `/api/v1/workflow/{type}/{mode}/companies/{company_id}/steps/{n}/complete` | `{ "step_name": "...", "data": { ... } }` |
+| POST | `/api/v1/workflow/{type}/{mode}/companies/{company_id}/steps/{n}/complete` | `{ "step_name": "...", "data": { ... } }` (Make payment requires paid entitlement) |
+| POST | `/api/v1/workflow/{type}/{mode}/companies/{company_id}/checkout-payment` | Add to cart + checkout + initialize Paystack for this compliance |
 | POST | `/api/v1/workflow/{type}/companies/{company_id}/documents` | multipart: `doc_type`, `file` |
 | POST | `/api/v1/workflow/{type}/{mode}/companies/{company_id}/submit` | Client submit → `IN_REVIEW` (**requires paid cart entitlement**) |
 | GET | `/api/v1/workflow/companies/{company_id}/progress` | All compliance progress |

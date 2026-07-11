@@ -86,6 +86,10 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
         ],
         4: [{"key": "nature_of_business", "label": "Nature of business", "type": "textarea", "required": True}],
         5: [{"key": "application_notes", "label": "Application notes", "type": "textarea", "required": False}],
+        6: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.FIRS, ComplianceMode.RENEWAL): {
         1: [{"key": "financial_year", "label": "Financial year", "type": "text", "required": True}],
@@ -93,8 +97,8 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
         3: [{"key": "audited_accounts_uploaded", "label": "Audited accounts uploaded", "type": "boolean", "required": False}],
         4: [{"key": "tax_filing_approved", "label": "Tax filing approved", "type": "boolean", "required": True}],
         5: [
-            {"key": "tax_paid", "label": "Tax paid", "type": "boolean", "required": False},
-            {"key": "tax_amount", "label": "Tax amount (NGN)", "type": "number", "required": False},
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
         ],
     },
     (ComplianceType.ITF, ComplianceMode.NEW): {
@@ -105,6 +109,10 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
             {"key": "annual_payroll_ngn", "label": "Estimated annual payroll (NGN)", "type": "number", "required": True},
         ],
         4: [{"key": "application_confirmed", "label": "Application confirmed", "type": "boolean", "required": True}],
+        5: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.ITF, ComplianceMode.RENEWAL): {
         1: [{"key": "annual_payroll_ngn", "label": "Updated annual payroll (NGN)", "type": "number", "required": True}],
@@ -113,13 +121,20 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
             {"key": "contribution_1_percent_ngn", "label": "1% ITF contribution (NGN)", "type": "number", "required": True},
             {"key": "contribution_approved", "label": "Contribution approved", "type": "boolean", "required": True},
         ],
-        4: [{"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False}],
+        4: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.NSITF, ComplianceMode.NEW): {
         1: [{"key": "employee_count", "label": "Number of employees", "type": "number", "required": True}],
         2: [{"key": "monthly_payroll_ngn", "label": "Monthly payroll (NGN)", "type": "number", "required": True}],
         3: [{"key": "salary_structure_notes", "label": "Salary structure notes", "type": "textarea", "required": False}],
         4: [{"key": "application_confirmed", "label": "Application confirmed", "type": "boolean", "required": True}],
+        5: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.NSITF, ComplianceMode.RENEWAL): {
         1: [
@@ -130,7 +145,10 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
             {"key": "contribution_1_percent_ngn", "label": "1% NSITF contribution (NGN)", "type": "number", "required": True},
             {"key": "contribution_approved", "label": "Contribution approved", "type": "boolean", "required": True},
         ],
-        3: [{"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False}],
+        3: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.PENCOM, ComplianceMode.NEW): {
         1: [{"key": "employee_count", "label": "Number of employees", "type": "number", "required": True}],
@@ -148,11 +166,19 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
             {"key": "auto_assign_pfa", "label": "Allow system to assign PFA", "type": "boolean", "required": False},
         ],
         4: [{"key": "pension_setup_approved", "label": "Pension setup approved", "type": "boolean", "required": True}],
+        5: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.PENCOM, ComplianceMode.RENEWAL): {
         1: [{"key": "monthly_remittance_confirmed", "label": "Monthly remittance confirmed", "type": "boolean", "required": True}],
         2: [{"key": "payment_records_notes", "label": "Payment records notes", "type": "textarea", "required": False}],
         3: [{"key": "compliance_approved", "label": "Compliance application approved", "type": "boolean", "required": True}],
+        4: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.GROUP_LIFE_INSURANCE, ComplianceMode.NEW): {
         1: [{"key": "employee_count", "label": "Number of employees", "type": "number", "required": True}],
@@ -161,7 +187,10 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
             {"key": "insurance_quote_ngn", "label": "Insurance quote (NGN)", "type": "number", "required": True},
             {"key": "quote_approved", "label": "Quote approved", "type": "boolean", "required": True},
         ],
-        4: [{"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False}],
+        4: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.GROUP_LIFE_INSURANCE, ComplianceMode.RENEWAL): {
         1: [{"key": "employee_count", "label": "Updated employee count", "type": "number", "required": True}],
@@ -170,7 +199,10 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
             {"key": "new_premium_ngn", "label": "New premium (NGN)", "type": "number", "required": True},
             {"key": "premium_approved", "label": "Premium approved", "type": "boolean", "required": True},
         ],
-        4: [{"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False}],
+        4: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.ACCOUNT_AUDITING, ComplianceMode.PROCESS): {
         1: [
@@ -183,6 +215,10 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
             {"key": "financial_notes", "label": "Additional financial notes", "type": "textarea", "required": False},
         ],
         3: [{"key": "draft_accounts_approved", "label": "Draft accounts approved", "type": "boolean", "required": True}],
+        4: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.SCUML, ComplianceMode.REGISTRATION): {
         1: [
@@ -201,6 +237,10 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
             {"key": "compliance_questionnaire_notes", "label": "Questionnaire notes", "type": "textarea", "required": False},
         ],
         5: [{"key": "application_confirmed", "label": "Application confirmed", "type": "boolean", "required": True}],
+        6: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.BPP_FEDERAL, ComplianceMode.REGISTRATION): {
         1: [{"key": "prerequisites_confirmed", "label": "Prerequisites confirmed", "type": "boolean", "required": True}],
@@ -214,6 +254,10 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
         3: [{"key": "documents_uploaded", "label": "Required documents uploaded", "type": "boolean", "required": True}],
         4: [{"key": "application_reviewed", "label": "Application reviewed", "type": "boolean", "required": True}],
         5: [{"key": "application_confirmed", "label": "Application confirmed", "type": "boolean", "required": True}],
+        6: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
     (ComplianceType.BPP_STATE, ComplianceMode.REGISTRATION): {
         1: [{"key": "prerequisites_confirmed", "label": "Prerequisites confirmed", "type": "boolean", "required": True}],
@@ -227,6 +271,10 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
         3: [{"key": "documents_uploaded", "label": "Required documents uploaded", "type": "boolean", "required": True}],
         4: [{"key": "application_reviewed", "label": "Application reviewed", "type": "boolean", "required": True}],
         5: [{"key": "application_confirmed", "label": "Application confirmed", "type": "boolean", "required": True}],
+        6: [
+            {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+            {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+        ],
     },
 }
 

@@ -202,6 +202,33 @@ async def upsert_workflow_template(
     )
 
 
+async def sync_open_workflows_total_steps(
+    conn: asyncpg.Connection,
+    compliance_type: str,
+    mode: str,
+    total_steps: int,
+) -> int:
+    """Bump total_steps on non-terminal workflows when the template grows."""
+    result = await conn.execute(
+        """
+        UPDATE compliance_workflows
+        SET total_steps = $3, last_updated = NOW()
+        WHERE compliance_type = $1::compliance_type
+          AND mode = $2::compliance_mode
+          AND status IN ('PENDING'::compliance_status, 'IN_REVIEW'::compliance_status)
+          AND total_steps <> $3
+        """,
+        compliance_type,
+        mode,
+        total_steps,
+    )
+    # asyncpg returns e.g. "UPDATE 3"
+    try:
+        return int(result.split()[-1])
+    except (ValueError, IndexError):
+        return 0
+
+
 async def replace_template_steps(
     conn: asyncpg.Connection,
     template_id: UUID,

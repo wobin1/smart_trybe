@@ -15,5 +15,11 @@ async def seed_workflow_templates(conn: asyncpg.Connection) -> int:
         )
         assert template is not None
         await compliance_repo.replace_template_steps(conn, template["id"], steps)
+        await compliance_repo.sync_open_workflows_total_steps(
+            conn,
+            compliance_type.value,
+            mode.value,
+            len(steps),
+        )
         seeded += 1
     return seeded

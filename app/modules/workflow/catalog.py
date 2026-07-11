@@ -24,19 +24,21 @@ WORKFLOW_STEP_DEFINITIONS: dict[tuple[ComplianceType, ComplianceMode], list[str]
         "Provide contact details",
         "Confirm nature of business",
         "Submit application",
+        "Make payment",
     ],
     (ComplianceType.FIRS, ComplianceMode.RENEWAL): [
         "Provide yearly financial records",
         "Confirm revenue for the year",
         "Upload audited accounts (if required)",
         "Approve tax filing",
-        "Pay tax (if applicable)",
+        "Make payment",
     ],
     (ComplianceType.ITF, ComplianceMode.NEW): [
         "Confirm number of employees",
         "Upload staff list",
         "Provide payroll estimate",
         "Submit application",
+        "Make payment",
     ],
     (ComplianceType.ITF, ComplianceMode.RENEWAL): [
         "Upload updated payroll",
@@ -49,6 +51,7 @@ WORKFLOW_STEP_DEFINITIONS: dict[tuple[ComplianceType, ComplianceMode], list[str]
         "Provide payroll details",
         "Confirm total salary structure",
         "Submit application",
+        "Make payment",
     ],
     (ComplianceType.NSITF, ComplianceMode.RENEWAL): [
         "Update employee and payroll info",
@@ -60,11 +63,13 @@ WORKFLOW_STEP_DEFINITIONS: dict[tuple[ComplianceType, ComplianceMode], list[str]
         "Provide employee details",
         "Select Pension Fund Administrator (or allow system assign)",
         "Approve pension setup",
+        "Make payment",
     ],
     (ComplianceType.PENCOM, ComplianceMode.RENEWAL): [
         "Confirm monthly pension remittance",
         "Upload payment records",
         "Approve compliance application",
+        "Make payment",
     ],
     (ComplianceType.GROUP_LIFE_INSURANCE, ComplianceMode.NEW): [
         "Upload employee list",
@@ -82,6 +87,7 @@ WORKFLOW_STEP_DEFINITIONS: dict[tuple[ComplianceType, ComplianceMode], list[str]
         "Upload income records, expenses, and bank statements",
         "Answer basic financial questions",
         "Approve draft accounts",
+        "Make payment",
     ],
     (ComplianceType.SCUML, ComplianceMode.REGISTRATION): [
         "Confirm business type (Designated Non-Financial Business)",
@@ -89,6 +95,7 @@ WORKFLOW_STEP_DEFINITIONS: dict[tuple[ComplianceType, ComplianceMode], list[str]
         "Upload required documents",
         "Fill compliance questionnaire (transactions, clients, etc.)",
         "Submit application",
+        "Make payment",
     ],
     (ComplianceType.BPP_FEDERAL, ComplianceMode.REGISTRATION): [
         "Confirm prerequisite compliances (FIRS TCC, PENCOM, ITF, NSITF)",
@@ -96,6 +103,7 @@ WORKFLOW_STEP_DEFINITIONS: dict[tuple[ComplianceType, ComplianceMode], list[str]
         "Upload required federal registration documents",
         "Review and confirm application",
         "Submit for federal BPP registration",
+        "Make payment",
     ],
     (ComplianceType.BPP_STATE, ComplianceMode.REGISTRATION): [
         "Confirm prerequisite compliances (FIRS TCC, PENCOM, ITF, NSITF)",
@@ -103,6 +111,7 @@ WORKFLOW_STEP_DEFINITIONS: dict[tuple[ComplianceType, ComplianceMode], list[str]
         "Upload required state registration documents",
         "Review and confirm application",
         "Submit for state BPP registration",
+        "Make payment",
     ],
 }
 

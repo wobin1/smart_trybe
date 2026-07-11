@@ -18,6 +18,22 @@ async def fetch_open_cart(
     )
 
 
+async def fetch_checkout_cart(
+    conn: asyncpg.Connection, company_id: UUID
+) -> asyncpg.Record | None:
+    return await conn.fetchrow(
+        """
+        SELECT id, company_id, user_id, status::text AS status,
+               created_at, updated_at
+        FROM compliance_carts
+        WHERE company_id = $1 AND status = 'CHECKOUT'::cart_status
+        ORDER BY updated_at DESC
+        LIMIT 1
+        """,
+        company_id,
+    )
+
+
 async def create_cart(
     conn: asyncpg.Connection, company_id: UUID, user_id: UUID
 ) -> asyncpg.Record:

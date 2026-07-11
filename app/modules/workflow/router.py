@@ -217,6 +217,24 @@ async def get_workflow_status(
     )
 
 
+@router.post("/{compliance_type}/{mode}/companies/{company_id}/checkout-payment")
+async def checkout_workflow_payment(
+    compliance_type: ComplianceType,
+    mode: ComplianceMode,
+    company_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+    svc: WorkflowService = Depends(get_workflow_service),
+):
+    """Pay for this compliance from the Make payment step (adds to cart, checkout, init Paystack)."""
+    return await svc.checkout_payment(
+        company_id=company_id,
+        user_id=user.id,
+        role=user.role,
+        compliance_type=compliance_type,
+        mode=mode,
+    )
+
+
 @router.post("/{compliance_type}/{mode}/companies/{company_id}/submit")
 async def submit_workflow(
     compliance_type: ComplianceType,
