@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.core.config import settings
 from app.core.database import close_pool, create_pool
 from app.db.bootstrap import bootstrap_database
 from app.modules.admin.router import router as admin_router
@@ -19,8 +20,20 @@ from app.modules.webhooks.router import router as webhooks_router
 from app.modules.workflow.router import router as workflow_router
 
 
+def _assert_no_payment_bypass_in_production() -> None:
+    # Compliance audit finding PF-1: a client can self-declare payment via manual
+    # POST /pay whenever PAYMENT_DEV_MODE is true. That flag must never be true
+    # in production, so fail fast at boot rather than silently exposing the bypass.
+    if settings.environment.strip().lower() == "production" and settings.payment_dev_mode:
+        raise RuntimeError(
+            "PAYMENT_DEV_MODE must be false when ENVIRONMENT=production "
+            "(a true value lets clients self-declare payment without Paystack)."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _assert_no_payment_bypass_in_production()
     pool = await create_pool()
     await bootstrap_database(pool)
     yield

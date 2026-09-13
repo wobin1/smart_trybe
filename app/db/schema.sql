@@ -355,3 +355,31 @@ CREATE TABLE IF NOT EXISTS company_data (
 
 CREATE INDEX IF NOT EXISTS idx_company_data_company
     ON company_data (company_id);
+
+-- Compliance audit remediation: rejection/query workflow states (PI-1)
+DO $$
+BEGIN
+    ALTER TYPE compliance_status ADD VALUE IF NOT EXISTS 'REJECTED';
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER TYPE compliance_status ADD VALUE IF NOT EXISTS 'INFO_REQUIRED';
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE compliance_workflows ADD COLUMN IF NOT EXISTS status_reason TEXT;
+ALTER TABLE compliance_workflows ADD COLUMN IF NOT EXISTS required_action TEXT;
+ALTER TABLE compliance_workflows ADD COLUMN IF NOT EXISTS status_updated_by UUID REFERENCES users (id) ON DELETE SET NULL;
+
+-- Compliance audit remediation: consent capture at registration (DP-1)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_accepted_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_version TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_ip TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_user_agent TEXT;
+
+-- Compliance audit remediation: agent assignment rationale (PI-2)
+ALTER TABLE company_agent_assignments ADD COLUMN IF NOT EXISTS assignment_reason TEXT;

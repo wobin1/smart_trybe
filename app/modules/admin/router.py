@@ -29,6 +29,7 @@ class UpdateUserBody(BaseModel):
 
 class AssignAgentBody(BaseModel):
     agent_user_id: UUID
+    assignment_reason: str | None = Field(default=None, max_length=1000)
 
 
 class UpdateCatalogItemBody(BaseModel):
@@ -177,6 +178,7 @@ async def assign_agent_to_company(
         company_id=company_id,
         agent_user_id=body.agent_user_id,
         assigned_by=admin.id,
+        assignment_reason=body.assignment_reason,
     )
 
 

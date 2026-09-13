@@ -42,27 +42,36 @@ async def paystack_webhook(
         raise HTTPException(status_code=400, detail="Missing payment reference")
 
     async with pool.acquire() as conn:
-        payment = await cart_repo.fetch_payment_by_provider_reference(conn, reference)
-        if payment is None:
+        # A combined "pay all" charge stamps the same reference across one
+        # payment row per company, so this can resolve to several payments.
+        payments = await cart_repo.fetch_payments_by_provider_reference(conn, reference)
+        if not payments:
             metadata = data.get("metadata") or {}
             payment_id_str = metadata.get("payment_id")
             if payment_id_str:
-                payment = await cart_repo.fetch_payment_by_id(conn, UUID(payment_id_str))
+                single = await cart_repo.fetch_payment_by_id(conn, UUID(payment_id_str))
+                if single is not None:
+                    payments = [single]
 
-    if payment is None:
+    if not payments:
         logger.warning("Paystack webhook: unknown reference %s", reference)
         raise HTTPException(status_code=404, detail="Payment not found")
 
     amount_kobo = data.get("amount")
-    expected_kobo = int(float(payment["total_amount_ngn"]) * 100)
+    expected_kobo = sum(int(float(p["total_amount_ngn"]) * 100) for p in payments)
     if amount_kobo is not None and int(amount_kobo) != expected_kobo:
         raise HTTPException(status_code=400, detail="Payment amount mismatch")
 
-    result = await svc.finalize_payment_from_webhook(
-        payment_id=payment["id"],
-        payment_reference=reference,
-        start_workflows=True,
-    )
-    if result is None:
+    completed_ids: list[str] = []
+    for payment in payments:
+        result = await svc.finalize_payment_from_webhook(
+            payment_id=payment["id"],
+            payment_reference=reference,
+            start_workflows=True,
+        )
+        if result is not None:
+            completed_ids.append(str(payment["id"]))
+
+    if not completed_ids:
         return {"received": True, "status": "already_completed"}
-    return {"received": True, "status": "completed", "payment_id": str(payment["id"])}
+    return {"received": True, "status": "completed", "payment_ids": completed_ids}

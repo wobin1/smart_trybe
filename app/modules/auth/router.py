@@ -1,7 +1,7 @@
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, EmailStr, Field
 
 from app.api.deps import CurrentUser, db_pool, get_current_user
@@ -12,11 +12,19 @@ from app.modules.auth.service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+# Bump when Terms of Service / Privacy Policy copy changes materially, so
+# consent records stay attributable to the version the user actually saw.
+CONSENT_VERSION = "tos-privacy-2026-09-11"
+
 
 class RegisterBody(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
     full_name: str | None = None
+    # Optional today so existing clients aren't broken by this rollout; the
+    # frontend should send this once it ships a required consent checkbox
+    # (compliance audit finding DP-1), after which the backend can enforce it.
+    consent_accepted: bool = False
 
 
 class LoginBody(BaseModel):
@@ -48,8 +56,18 @@ def get_auth_service(pool: asyncpg.Pool = Depends(db_pool)) -> AuthService:
 
 
 @router.post("/register", status_code=201)
-async def register(body: RegisterBody, svc: AuthService = Depends(get_auth_service)):
-    await svc.register(email=str(body.email), password=body.password, full_name=body.full_name)
+async def register(
+    body: RegisterBody, request: Request, svc: AuthService = Depends(get_auth_service)
+):
+    await svc.register(
+        email=str(body.email),
+        password=body.password,
+        full_name=body.full_name,
+        consent_accepted=body.consent_accepted,
+        consent_version=CONSENT_VERSION,
+        consent_ip=request.client.host if request.client else None,
+        consent_user_agent=request.headers.get("user-agent"),
+    )
     token = await svc.login(email=str(body.email), password=body.password)
     return TokenResponse(access_token=token)
 

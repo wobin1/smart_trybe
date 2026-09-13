@@ -1,4 +1,5 @@
 import mimetypes
+import re
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -47,7 +48,14 @@ def resolve_upload_path(storage_ref: str) -> Path:
 def cloudinary_attachment_url(url: str, filename: str) -> str:
     if "/upload/" not in url:
         return url
-    return url.replace("/upload/", f"/upload/fl_attachment:{filename}/", 1)
+    # Cloudinary parses fl_attachment:<value> as part of the transformation
+    # string, where "." (and "/", ",", ":") are component separators — a
+    # value like "cert.pdf" breaks it with "Invalid flag in transformation:
+    # pdf". Strip to a bare, dot-free name; Cloudinary appends the file's
+    # real extension to the downloaded filename automatically.
+    stem = Path(filename).stem or filename
+    safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", stem).strip("_") or "file"
+    return url.replace("/upload/", f"/upload/fl_attachment:{safe_name}/", 1)
 
 
 def build_file_path(company_id: str, document_id: str, *, download: bool = False) -> str:

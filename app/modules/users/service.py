@@ -82,6 +82,7 @@ class UserManagementService:
         company_id: UUID,
         agent_user_id: UUID,
         assigned_by: UUID,
+        assignment_reason: str | None = None,
     ) -> dict:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -97,6 +98,7 @@ class UserManagementService:
                     company_id=company_id,
                     agent_user_id=agent_user_id,
                     assigned_by=assigned_by,
+                    assignment_reason=assignment_reason,
                 )
                 company = await fetch_company_by_id(conn, company_id)
                 agent = await users_repo.fetch_user_by_id(conn, agent_user_id)
@@ -113,6 +115,7 @@ class UserManagementService:
                     "company_id": str(row["company_id"]),
                     "agent_user_id": str(row["agent_user_id"]),
                     "assigned_by": str(row["assigned_by"]) if row["assigned_by"] else None,
+                    "assignment_reason": row["assignment_reason"],
                     "assigned_at": row["assigned_at"].isoformat(),
                 }
 
@@ -150,6 +153,7 @@ class UserManagementService:
                         "agent_email": r["agent_email"],
                         "agent_name": r["agent_name"],
                         "assigned_by": str(r["assigned_by"]) if r["assigned_by"] else None,
+                        "assignment_reason": r["assignment_reason"],
                         "assigned_at": r["assigned_at"].isoformat(),
                     }
                     for r in rows

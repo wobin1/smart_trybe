@@ -115,6 +115,33 @@ WORKFLOW_STEP_DEFINITIONS: dict[tuple[ComplianceType, ComplianceMode], list[str]
     ],
 }
 
+# Cross-compliance dependencies enforced by ComplianceEngine (see app/modules/compliance/engine.py).
+# Surfaced to the client so it can show "depends on N" before the user attempts to start,
+# instead of only failing once the real check runs. Each dependency names the exact
+# (compliance_type, mode) the engine actually checks for completion, so the client can
+# link straight to it — e.g. BPP checks the RENEWAL workflow, not just the registry.
+DEPENDENCY_TYPES: dict[tuple[ComplianceType, ComplianceMode], list[tuple[ComplianceType, ComplianceMode]]] = {
+    (ComplianceType.BPP_FEDERAL, ComplianceMode.REGISTRATION): [
+        (ComplianceType.FIRS, ComplianceMode.RENEWAL),
+        (ComplianceType.PENCOM, ComplianceMode.RENEWAL),
+        (ComplianceType.ITF, ComplianceMode.RENEWAL),
+        (ComplianceType.NSITF, ComplianceMode.RENEWAL),
+    ],
+    (ComplianceType.BPP_STATE, ComplianceMode.REGISTRATION): [
+        (ComplianceType.FIRS, ComplianceMode.RENEWAL),
+        (ComplianceType.PENCOM, ComplianceMode.RENEWAL),
+        (ComplianceType.ITF, ComplianceMode.RENEWAL),
+        (ComplianceType.NSITF, ComplianceMode.RENEWAL),
+    ],
+    (ComplianceType.FIRS, ComplianceMode.RENEWAL): [
+        (ComplianceType.ACCOUNT_AUDITING, ComplianceMode.PROCESS),
+        (ComplianceType.CAC, ComplianceMode.NEW),
+    ],
+    (ComplianceType.PENCOM, ComplianceMode.RENEWAL): [
+        (ComplianceType.CAC, ComplianceMode.NEW),
+    ],
+}
+
 REQUIRED_DOCS: dict[tuple[ComplianceType, ComplianceMode], set[str]] = {
     (ComplianceType.CAC, ComplianceMode.NEW): {
         "VALID_ID",

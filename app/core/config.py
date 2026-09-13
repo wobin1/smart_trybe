@@ -6,6 +6,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://postgres:postgres@localhost:5432/smart_trybe_compliance"
     upload_dir: str = "./uploads"
+    environment: str = "development"
 
     cloudinary_cloud_name: str = ""
     cloudinary_api_key: str = ""

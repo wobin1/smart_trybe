@@ -379,7 +379,8 @@ async def fetch_workflow(
     return await conn.fetchrow(
         """
         SELECT id, company_id, compliance_type::text AS compliance_type, mode::text AS mode,
-               status::text AS status, current_step, total_steps, last_updated
+               status::text AS status, current_step, total_steps, last_updated,
+               status_reason, required_action
         FROM compliance_workflows
         WHERE company_id = $1
           AND compliance_type = $2::compliance_type
@@ -396,16 +397,28 @@ async def mark_workflow_status(
     workflow_id: UUID,
     status: str,
     current_step: int,
+    *,
+    reason: str | None = None,
+    required_action: str | None = None,
+    updated_by: UUID | None = None,
 ) -> None:
     await conn.execute(
         """
         UPDATE compliance_workflows
-        SET status = $2::compliance_status, current_step = $3, last_updated = NOW()
+        SET status = $2::compliance_status,
+            current_step = $3,
+            status_reason = $4,
+            required_action = $5,
+            status_updated_by = $6,
+            last_updated = NOW()
         WHERE id = $1
         """,
         workflow_id,
         status,
         current_step,
+        reason,
+        required_action,
+        updated_by,
     )
 
 
