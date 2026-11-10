@@ -68,6 +68,7 @@ async def list_companies(
             "rc_number": r["rc_number"],
             "tin": r["tin"],
             "address": r["address"],
+            "registration_type": r["registration_type"],
             "user_id": str(r["user_id"]),
             "created_at": r["created_at"].isoformat(),
         }
@@ -88,6 +89,7 @@ async def get_company(
         "rc_number": r["rc_number"],
         "tin": r["tin"],
         "address": r["address"],
+        "registration_type": r["registration_type"],
         "user_id": str(r["user_id"]),
         "created_at": r["created_at"].isoformat(),
     }
@@ -117,6 +119,7 @@ async def patch_company(
         "rc_number": r["rc_number"],
         "tin": r["tin"],
         "address": r["address"],
+        "registration_type": r["registration_type"],
         "user_id": str(r["user_id"]),
         "created_at": r["created_at"].isoformat(),
     }

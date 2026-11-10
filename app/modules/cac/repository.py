@@ -32,7 +32,8 @@ async def insert_company(
 async def fetch_company(conn: asyncpg.Connection, company_id: UUID) -> asyncpg.Record | None:
     return await conn.fetchrow(
         """
-        SELECT id, name, rc_number, tin, address, user_id, created_at
+        SELECT id, name, rc_number, tin, address, user_id, created_at,
+               registration_type::text AS registration_type
         FROM companies
         WHERE id = $1
         """,
@@ -45,7 +46,8 @@ async def fetch_company_for_user(
 ) -> asyncpg.Record | None:
     return await conn.fetchrow(
         """
-        SELECT id, name, rc_number, tin, address, user_id, created_at
+        SELECT id, name, rc_number, tin, address, user_id, created_at,
+               registration_type::text AS registration_type
         FROM companies
         WHERE id = $1 AND user_id = $2
         """,
@@ -77,7 +79,8 @@ async def update_company_for_user(
         UPDATE companies
         SET {", ".join(set_parts)}
         WHERE id = $1 AND user_id = $2
-        RETURNING id, name, rc_number, tin, address, user_id, created_at
+        RETURNING id, name, rc_number, tin, address, user_id, created_at,
+                  registration_type::text AS registration_type
     """
     return await conn.fetchrow(sql, *values)
 
@@ -86,6 +89,7 @@ async def list_all_companies(conn: asyncpg.Connection) -> list[asyncpg.Record]:
     return await conn.fetch(
         """
         SELECT c.id, c.name, c.rc_number, c.tin, c.address, c.user_id, c.created_at,
+               c.registration_type::text AS registration_type,
                u.email AS owner_email, u.full_name AS owner_name
         FROM companies c
         JOIN users u ON u.id = c.user_id
@@ -98,6 +102,7 @@ async def fetch_company_by_id(conn: asyncpg.Connection, company_id: UUID) -> asy
     return await conn.fetchrow(
         """
         SELECT c.id, c.name, c.rc_number, c.tin, c.address, c.user_id, c.created_at,
+               c.registration_type::text AS registration_type,
                u.email AS owner_email, u.full_name AS owner_name
         FROM companies c
         JOIN users u ON u.id = c.user_id
@@ -110,7 +115,8 @@ async def fetch_company_by_id(conn: asyncpg.Connection, company_id: UUID) -> asy
 async def list_companies_for_user(conn: asyncpg.Connection, user_id: UUID) -> list[asyncpg.Record]:
     return await conn.fetch(
         """
-        SELECT id, name, rc_number, tin, address, user_id, created_at
+        SELECT id, name, rc_number, tin, address, user_id, created_at,
+               registration_type::text AS registration_type
         FROM companies
         WHERE user_id = $1
         ORDER BY created_at DESC

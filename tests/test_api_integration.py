@@ -86,7 +86,12 @@ def test_cac_company_requires_auth(client: TestClient):
     assert listed.status_code == 200
     assert any(row["id"] == cid for row in listed.json())
 
-    original_name = client.get(f"/api/v1/cac/companies/{cid}", headers=headers).json()["name"]
+    first = client.get(f"/api/v1/cac/companies/{cid}", headers=headers).json()
+    original_name = first["name"]
+    # The registration type chosen at setup is returned, so the UI can tell a
+    # new registration from an existing company.
+    assert first["registration_type"] in ("NEW", "EXISTING")
+    assert any(c["registration_type"] == first["registration_type"] for c in client.get("/api/v1/cac/companies", headers=headers).json())
 
     # The company name is fixed once set; other profile fields stay editable.
     rename = client.patch(

@@ -163,6 +163,7 @@ async def list_companies_for_agent(
     return await conn.fetch(
         """
         SELECT c.id, c.name, c.rc_number, c.tin, c.address, c.user_id, c.created_at,
+               c.registration_type::text AS registration_type,
                u.email AS owner_email, u.full_name AS owner_name,
                a.assigned_at
         FROM company_agent_assignments a
