@@ -345,7 +345,7 @@ async def list_workflows_for_company(
     return await conn.fetch(
         """
         SELECT id, company_id, compliance_type::text AS compliance_type, mode::text AS mode,
-               status::text AS status, current_step, total_steps, last_updated
+               status::text AS status, current_step, total_steps, last_updated, definition
         FROM compliance_workflows
         WHERE company_id = $1
         ORDER BY compliance_type::text ASC, mode::text ASC
@@ -380,7 +380,7 @@ async def fetch_workflow(
         """
         SELECT id, company_id, compliance_type::text AS compliance_type, mode::text AS mode,
                status::text AS status, current_step, total_steps, last_updated,
-               status_reason, required_action
+               status_reason, required_action, definition
         FROM compliance_workflows
         WHERE company_id = $1
           AND compliance_type = $2::compliance_type
@@ -548,6 +548,39 @@ async def upsert_step_completion(
         step_number,
         step_name,
         payload,
+    )
+
+
+async def list_step_progress(conn: asyncpg.Connection, workflow_id: UUID) -> list[asyncpg.Record]:
+    """Every saved step of a filing, including its data."""
+    return await conn.fetch(
+        """
+        SELECT step_number, step_name, is_completed, completed_at, step_data, updated_at
+        FROM compliance_step_progress
+        WHERE workflow_id = $1
+        ORDER BY step_number ASC
+        """,
+        workflow_id,
+    )
+
+
+async def insert_workflow_if_missing(
+    conn: asyncpg.Connection,
+    company_id: UUID,
+    compliance_type: str,
+    mode: str,
+    total_steps: int,
+) -> None:
+    await conn.execute(
+        """
+        INSERT INTO compliance_workflows (company_id, compliance_type, mode, total_steps)
+        VALUES ($1, $2::compliance_type, $3::compliance_mode, $4)
+        ON CONFLICT (company_id, compliance_type, mode) DO NOTHING
+        """,
+        company_id,
+        compliance_type,
+        mode,
+        total_steps,
     )
 
 

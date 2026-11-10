@@ -12,13 +12,19 @@ def merge_step_data(
     compliance_type: ComplianceType,
     mode: ComplianceMode,
     step_number: int,
+    fields: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Overlay canonical company data onto step fields when the step value is empty."""
+    """Overlay canonical company data onto step fields when the step value is empty.
+
+    `fields` is the step's stored definition; without it the code default is used.
+    """
     merged = dict(step_data) if step_data else {}
     if not company_data:
         return merged
 
-    for field in get_step_field_schema(compliance_type, mode, step_number):
+    if fields is None:
+        fields = get_step_field_schema(compliance_type, mode, step_number)
+    for field in fields:
         field_key = field["key"]
         if merged.get(field_key) not in (None, "", []):
             continue

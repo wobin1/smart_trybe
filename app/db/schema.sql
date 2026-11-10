@@ -12,22 +12,17 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
+-- compliance_type is an open-ended code (admins create new compliances at runtime),
+-- so it is a TEXT domain rather than an enum. Keeping the name `compliance_type`
+-- means every existing `$1::compliance_type` cast keeps working unchanged.
+-- Databases created before this change have it as an enum; they are converted by
+-- the "compliance_type enum -> text" block further down.
 DO $$
 BEGIN
-    CREATE TYPE compliance_type AS ENUM (
-        'CAC',
-        'FIRS',
-        'ITF',
-        'NSITF',
-        'PENCOM',
-        'GROUP_LIFE_INSURANCE',
-        'ACCOUNT_AUDITING',
-        'SCUML',
-        'BPP_FEDERAL',
-        'BPP_STATE'
-    );
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'compliance_type') THEN
+        CREATE DOMAIN compliance_type AS TEXT
+            CONSTRAINT compliance_type_code_format CHECK (VALUE ~ '^[A-Z][A-Z0-9_]{1,39}$');
+    END IF;
 END $$;
 
 DO $$
@@ -383,3 +378,51 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_user_agent TEXT;
 
 -- Compliance audit remediation: agent assignment rationale (PI-2)
 ALTER TABLE company_agent_assignments ADD COLUMN IF NOT EXISTS assignment_reason TEXT;
+
+-- Admin-managed compliances: compliance_type enum -> text.
+-- Converts every column still typed with the old enum, then swaps the enum for a
+-- TEXT domain of the same name. Idempotent: does nothing once the enum is gone.
+DO $$
+DECLARE
+    col RECORD;
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'compliance_type' AND typtype = 'e') THEN
+        FOR col IN
+            SELECT c.table_schema, c.table_name, c.column_name
+            FROM information_schema.columns c
+            JOIN information_schema.tables t
+              ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+            WHERE c.udt_name = 'compliance_type' AND t.table_type = 'BASE TABLE'
+        LOOP
+            EXECUTE format(
+                'ALTER TABLE %I.%I ALTER COLUMN %I TYPE TEXT USING %I::text',
+                col.table_schema, col.table_name, col.column_name, col.column_name
+            );
+        END LOOP;
+        DROP TYPE compliance_type;
+        CREATE DOMAIN compliance_type AS TEXT
+            CONSTRAINT compliance_type_code_format CHECK (VALUE ~ '^[A-Z][A-Z0-9_]{1,39}$');
+    END IF;
+END $$;
+
+-- Admin-managed compliances: the catalog and workflow templates are the source of
+-- truth for what a compliance is called, costs, asks for, and depends on.
+ALTER TABLE compliance_catalog ADD COLUMN IF NOT EXISTS regulator_name TEXT;
+ALTER TABLE compliance_catalog ADD COLUMN IF NOT EXISTS display_order INT NOT NULL DEFAULT 1000;
+-- Built-in compliances have bespoke screens/logic in code; admin-created ones do not.
+ALTER TABLE compliance_catalog ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- NULL means "never configured" (falls back to the code defaults); [] means "none".
+ALTER TABLE workflow_templates ADD COLUMN IF NOT EXISTS required_documents JSONB;
+ALTER TABLE workflow_templates ADD COLUMN IF NOT EXISTS depends_on JSONB;
+ALTER TABLE workflow_template_steps ADD COLUMN IF NOT EXISTS fields JSONB;
+
+-- Snapshot of the template taken when a filing starts, so later admin edits to a
+-- compliance only affect new filings and never reshape one already in progress.
+ALTER TABLE compliance_workflows ADD COLUMN IF NOT EXISTS definition JSONB;
+
+-- One-off data migrations applied by app/db/bootstrap.py.
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    key TEXT PRIMARY KEY,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

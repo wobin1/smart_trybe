@@ -1,8 +1,25 @@
+"""Code defaults for the built-in compliances.
+
+These only *seed* the database. Once a compliance exists there, the admin-edited
+copy in `workflow_templates` / `workflow_template_steps` is what the app uses —
+see app/modules/workflow/definitions.py.
+"""
+
 from app.domain.enums import ComplianceMode, ComplianceType
+
+MAKE_PAYMENT_STEP_NAME = "Make payment"
+
+# Starting point for the built-ins that have no agreed process yet (NITDA, CPN, NCS).
+_GENERIC_REGISTRATION_STEPS = [
+    "Provide company details",
+    "Upload required documents",
+    "Review and confirm application",
+    MAKE_PAYMENT_STEP_NAME,
+]
 
 WORKFLOW_STEP_DEFINITIONS: dict[tuple[ComplianceType, ComplianceMode], list[str]] = {
     (ComplianceType.CAC, ComplianceMode.NEW): [
-        "Choose 2 proposed company names",
+        "Choose proposed company names",
         "Provide business activity (what the company does)",
         "Provide directors and shareholders details",
         "Upload valid ID (NIN or passport)",
@@ -113,25 +130,28 @@ WORKFLOW_STEP_DEFINITIONS: dict[tuple[ComplianceType, ComplianceMode], list[str]
         "Submit for state BPP registration",
         "Make payment",
     ],
+    (ComplianceType.NITDA, ComplianceMode.REGISTRATION): list(_GENERIC_REGISTRATION_STEPS),
+    (ComplianceType.CPN, ComplianceMode.REGISTRATION): list(_GENERIC_REGISTRATION_STEPS),
+    (ComplianceType.NCS, ComplianceMode.REGISTRATION): list(_GENERIC_REGISTRATION_STEPS),
 }
 
-# Cross-compliance dependencies enforced by ComplianceEngine (see app/modules/compliance/engine.py).
-# Surfaced to the client so it can show "depends on N" before the user attempts to start,
-# instead of only failing once the real check runs. Each dependency names the exact
-# (compliance_type, mode) the engine actually checks for completion, so the client can
-# link straight to it — e.g. BPP checks the RENEWAL workflow, not just the registry.
+# Default cross-compliance dependencies. A dependency is satisfied when the company's
+# registry entry for that compliance is COMPLETED and not expired (see
+# app/modules/compliance/engine.py). The mode says which application the client
+# should be sent to if it is missing. Each agency now has a single application, so
+# BPP points at the one remaining ITF / NSITF / PENCOM application.
 DEPENDENCY_TYPES: dict[tuple[ComplianceType, ComplianceMode], list[tuple[ComplianceType, ComplianceMode]]] = {
     (ComplianceType.BPP_FEDERAL, ComplianceMode.REGISTRATION): [
         (ComplianceType.FIRS, ComplianceMode.RENEWAL),
-        (ComplianceType.PENCOM, ComplianceMode.RENEWAL),
-        (ComplianceType.ITF, ComplianceMode.RENEWAL),
-        (ComplianceType.NSITF, ComplianceMode.RENEWAL),
+        (ComplianceType.PENCOM, ComplianceMode.NEW),
+        (ComplianceType.ITF, ComplianceMode.NEW),
+        (ComplianceType.NSITF, ComplianceMode.NEW),
     ],
     (ComplianceType.BPP_STATE, ComplianceMode.REGISTRATION): [
         (ComplianceType.FIRS, ComplianceMode.RENEWAL),
-        (ComplianceType.PENCOM, ComplianceMode.RENEWAL),
-        (ComplianceType.ITF, ComplianceMode.RENEWAL),
-        (ComplianceType.NSITF, ComplianceMode.RENEWAL),
+        (ComplianceType.PENCOM, ComplianceMode.NEW),
+        (ComplianceType.ITF, ComplianceMode.NEW),
+        (ComplianceType.NSITF, ComplianceMode.NEW),
     ],
     (ComplianceType.FIRS, ComplianceMode.RENEWAL): [
         (ComplianceType.ACCOUNT_AUDITING, ComplianceMode.PROCESS),
@@ -193,4 +213,7 @@ REQUIRED_DOCS: dict[tuple[ComplianceType, ComplianceMode], set[str]] = {
         "STATE_TIN",
         "COMPANY_PROFILE",
     },
+    (ComplianceType.NITDA, ComplianceMode.REGISTRATION): {"CAC_CERTIFICATE"},
+    (ComplianceType.CPN, ComplianceMode.REGISTRATION): {"CAC_CERTIFICATE"},
+    (ComplianceType.NCS, ComplianceMode.REGISTRATION): {"CAC_CERTIFICATE"},
 }

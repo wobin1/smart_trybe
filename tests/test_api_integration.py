@@ -192,7 +192,7 @@ def test_cac_company_requires_auth(client: TestClient):
         f"/api/v1/workflow/CAC/NEW/companies/{cid}/steps/1/complete",
         headers=headers,
         json={
-            "step_name": "Choose 2 proposed company names",
+            "step_name": "Choose proposed company names",
             "data": {
                 "proposed_name_1": "Acme Alpha Ltd",
                 "proposed_name_2": "Acme Beta Ltd",

@@ -1,10 +1,11 @@
 """
 Smart dependency detection for compliance workflows.
 
-Rules implemented:
-- BPP Federal / State: Active TCC (FIRS), PENCOM, ITF, NSITF.
-- FIRS TCC: Audited accounts (ACCOUNT_AUDITING completed & active) + CAC completed & active (status report proxy).
-- PENCOM renewal: Active CAC + staff list document on PENCOM.
+A compliance's dependencies are stored on its template (`depends_on`) and edited
+by admins. A dependency is satisfied when the company's registry entry for that
+compliance is COMPLETED and not expired. Two built-in refinements remain:
+- FIRS as a dependency means an active TCC, so it must carry an expiry date.
+- PENCOM renewal additionally needs a staff list document on PENCOM.
 """
 
 from datetime import date
@@ -48,6 +49,26 @@ class ComplianceEngine:
     def __init__(self, conn: asyncpg.Connection):
         self._conn = conn
 
+    async def missing_dependencies(self, company_id: UUID, depends_on: list[dict]) -> list[str]:
+        """Codes of the dependencies this company has not completed (or let expire)."""
+        missing: list[str] = []
+        for dep in depends_on:
+            code = str(dep["compliance_type"])
+            row = await reg_repo.fetch_registry_row(self._conn, company_id, code)
+            satisfied = _active_tcc(row) if code == ComplianceType.FIRS else _completed_active(row)
+            if not satisfied:
+                missing.append(code)
+        return missing
+
+    async def missing_pencom_staff_list(self, company_id: UUID) -> list[str]:
+        has_staff_list = await reg_repo.document_exists(
+            self._conn, company_id, ComplianceType.PENCOM.value, "STAFF_LIST"
+        )
+        return [] if has_staff_list else ["PENCOM_STAFF_LIST"]
+
+    # The three methods below are the original hard-coded rules. They are no longer
+    # called by the workflow service (see missing_dependencies) and are kept only
+    # for reference until the data-driven rules have been through a release.
     async def missing_for_bpp(self, company_id: UUID) -> list[str]:
         missing: list[str] = []
         firs = await reg_repo.fetch_registry_row(self._conn, company_id, ComplianceType.FIRS.value)

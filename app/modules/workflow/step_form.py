@@ -18,6 +18,7 @@ def build_step_form_fields(
     step_number: int,
     step_data: dict[str, Any],
     company_data: dict[str, Any],
+    fields: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str], dict[str, Any]]:
     """Return field definitions with merged values and list of missing required keys."""
     merged = merge_step_data(
@@ -26,9 +27,10 @@ def build_step_form_fields(
         compliance_type=compliance_type,
         mode=mode,
         step_number=step_number,
+        fields=fields,
     )
-    schema = get_step_field_schema(compliance_type, mode, step_number)
-    fields: list[dict[str, Any]] = []
+    schema = fields if fields is not None else get_step_field_schema(compliance_type, mode, step_number)
+    form_fields: list[dict[str, Any]] = []
     missing_required: list[str] = []
 
     for field in schema:
@@ -41,7 +43,7 @@ def build_step_form_fields(
         if field.get("required") and not filled:
             missing_required.append(key)
 
-        fields.append(
+        form_fields.append(
             {
                 "key": key,
                 "label": field.get("label", key),
@@ -56,4 +58,4 @@ def build_step_form_fields(
             }
         )
 
-    return fields, missing_required, merged
+    return form_fields, missing_required, merged
