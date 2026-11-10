@@ -101,10 +101,14 @@ async def patch_company(
     svc: CACService = Depends(get_cac_service),
 ):
     updates = body.model_dump(exclude_unset=True)
+    # The company name is the legal identity filings are made under (and, for
+    # registered companies, comes from CAC's own record), so it is fixed once set.
+    if "name" in updates:
+        raise HTTPException(status_code=403, detail="The company name cannot be changed")
     if not updates:
         raise HTTPException(
             status_code=400,
-            detail="Provide at least one field to update: name, rc_number, tin, address",
+            detail="Provide at least one field to update: rc_number, tin, address",
         )
     r = await svc.update_company(company_id, user.id, user.role, updates)
     return {

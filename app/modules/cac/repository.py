@@ -60,7 +60,7 @@ async def update_company_for_user(
     user_id: UUID,
     updates: dict[str, str | None],
 ) -> asyncpg.Record | None:
-    allowed = {"name", "rc_number", "tin", "address"}
+    allowed = {"rc_number", "tin", "address"}  # name is fixed once set
     set_parts: list[str] = []
     values: list[object] = [company_id, user_id]
     idx = 3
