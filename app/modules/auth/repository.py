@@ -11,11 +11,20 @@ async def insert_user(
     *,
     role: str = "CLIENT",
     is_admin: bool = False,
+    consent_version: str | None = None,
+    consent_ip: str | None = None,
+    consent_user_agent: str | None = None,
 ) -> UUID:
     row = await conn.fetchrow(
         """
-        INSERT INTO users (email, password_hash, full_name, role, is_admin)
-        VALUES (LOWER(TRIM($1)), $2, $3, $4::user_role, $5)
+        INSERT INTO users (
+            email, password_hash, full_name, role, is_admin,
+            consent_accepted_at, consent_version, consent_ip, consent_user_agent
+        )
+        VALUES (
+            LOWER(TRIM($1)), $2, $3, $4::user_role, $5,
+            CASE WHEN $6::text IS NOT NULL THEN NOW() END, $6, $7, $8
+        )
         RETURNING id
         """,
         email,
@@ -23,6 +32,9 @@ async def insert_user(
         full_name,
         role,
         is_admin,
+        consent_version,
+        consent_ip,
+        consent_user_agent,
     )
     assert row is not None
     return row["id"]

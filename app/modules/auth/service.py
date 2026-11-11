@@ -14,13 +14,32 @@ class AuthService:
     def __init__(self, pool: asyncpg.Pool):
         self._pool = pool
 
-    async def register(self, *, email: str, password: str, full_name: str | None) -> UUID:
+    async def register(
+        self,
+        *,
+        email: str,
+        password: str,
+        full_name: str | None,
+        consent_accepted: bool = False,
+        consent_version: str | None = None,
+        consent_ip: str | None = None,
+        consent_user_agent: str | None = None,
+    ) -> UUID:
         async with self._pool.acquire() as conn:
             existing = await auth_repo.fetch_user_by_email(conn, email)
             if existing is not None:
                 raise HTTPException(status_code=409, detail="Email already registered")
             pw_hash = hash_password(password)
-            return await auth_repo.insert_user(conn, email, pw_hash, full_name, role="CLIENT")
+            return await auth_repo.insert_user(
+                conn,
+                email,
+                pw_hash,
+                full_name,
+                role="CLIENT",
+                consent_version=consent_version if consent_accepted else None,
+                consent_ip=consent_ip if consent_accepted else None,
+                consent_user_agent=consent_user_agent if consent_accepted else None,
+            )
 
     async def login(self, *, email: str, password: str) -> str:
         async with self._pool.acquire() as conn:

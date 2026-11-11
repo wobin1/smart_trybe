@@ -4,6 +4,7 @@ import logging
 import asyncpg
 
 from app.core.config import settings
+from app.db.migrations import run_migrations
 from app.modules.catalog.bootstrap import seed_compliance_catalog
 from app.modules.workflow.bootstrap import seed_workflow_templates
 
@@ -51,4 +52,7 @@ async def bootstrap_database(pool: asyncpg.Pool) -> None:
         logger.info("Bootstrapping database: seeding compliance catalog")
         catalog_count = await seed_compliance_catalog(conn)
         logger.info("Bootstrapping database: seeded %s catalog items", catalog_count)
+        applied = await run_migrations(conn)
+        if applied:
+            logger.info("Bootstrapping database: applied data migrations %s", ", ".join(applied))
     logger.info("Bootstrapping database: complete")

@@ -68,6 +68,7 @@ async def list_companies(
             "rc_number": r["rc_number"],
             "tin": r["tin"],
             "address": r["address"],
+            "registration_type": r["registration_type"],
             "user_id": str(r["user_id"]),
             "created_at": r["created_at"].isoformat(),
         }
@@ -88,6 +89,7 @@ async def get_company(
         "rc_number": r["rc_number"],
         "tin": r["tin"],
         "address": r["address"],
+        "registration_type": r["registration_type"],
         "user_id": str(r["user_id"]),
         "created_at": r["created_at"].isoformat(),
     }
@@ -101,10 +103,14 @@ async def patch_company(
     svc: CACService = Depends(get_cac_service),
 ):
     updates = body.model_dump(exclude_unset=True)
+    # The company name is the legal identity filings are made under (and, for
+    # registered companies, comes from CAC's own record), so it is fixed once set.
+    if "name" in updates:
+        raise HTTPException(status_code=403, detail="The company name cannot be changed")
     if not updates:
         raise HTTPException(
             status_code=400,
-            detail="Provide at least one field to update: name, rc_number, tin, address",
+            detail="Provide at least one field to update: rc_number, tin, address",
         )
     r = await svc.update_company(company_id, user.id, user.role, updates)
     return {
@@ -113,6 +119,7 @@ async def patch_company(
         "rc_number": r["rc_number"],
         "tin": r["tin"],
         "address": r["address"],
+        "registration_type": r["registration_type"],
         "user_id": str(r["user_id"]),
         "created_at": r["created_at"].isoformat(),
     }

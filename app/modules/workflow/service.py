@@ -1,13 +1,12 @@
 import json
 from datetime import date
-from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 import asyncpg
 from fastapi import HTTPException, UploadFile
 
-from app.core.storage import build_upload_folder, upload_file
+from app.core.uploads import store_upload
 from app.domain.enums import ComplianceMode, ComplianceStatus, ComplianceType, UserRole
 from app.modules.access.company import (
     require_company_agent,
@@ -26,11 +25,10 @@ from app.modules.company_data.repository import (
 )
 from app.modules.entitlements import repository as entitlements_repo
 from app.modules.notifications.service import NotificationService
-from app.modules.workflow.catalog import REQUIRED_DOCS, WORKFLOW_STEP_DEFINITIONS
+from app.modules.workflow import definitions
+from app.modules.workflow.catalog import MAKE_PAYMENT_STEP_NAME
 from app.modules.workflow.step_form import build_step_form_fields
-from app.modules.workflow.step_schemas import get_step_field_schema, validate_step_data
-
-MAKE_PAYMENT_STEP_NAME = "Make payment"
+from app.modules.workflow.step_schemas import validate_step_data
 
 
 def _workflow_key(compliance_type: str, mode: str) -> tuple[str, str]:
@@ -67,6 +65,91 @@ def _ensure_workflow(row: asyncpg.Record | None) -> asyncpg.Record:
     return row
 
 
+async def _depends_on(
+    conn: asyncpg.Connection, compliance_type: ComplianceType, mode: ComplianceMode
+) -> list[dict]:
+    """Dependencies are always read live from the template, never from a filing's snapshot."""
+    template = await definitions.load_template_definition(
+        conn, compliance_type.value, mode.value, include_inactive=True
+    )
+    return list(template["depends_on"]) if template else []
+
+
+async def _engine_prerequisites(
+    conn: asyncpg.Connection,
+    compliance_type: ComplianceType,
+    mode: ComplianceMode,
+    company_id: UUID,
+) -> list[str]:
+    """Cross-compliance dependency checks (e.g. BPP needs an active FIRS TCC/PENCOM/ITF/NSITF)."""
+    engine = ComplianceEngine(conn)
+    missing = await engine.missing_dependencies(
+        company_id, await _depends_on(conn, compliance_type, mode)
+    )
+    if compliance_type == ComplianceType.PENCOM and mode == ComplianceMode.RENEWAL:
+        missing.extend(await engine.missing_pencom_staff_list(company_id))
+    return missing
+
+
+def _raise_prerequisites(missing: list[str]) -> None:
+    if not missing:
+        return
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "message": "Compliance prerequisites not satisfied",
+            "missing_compliance": missing,
+        },
+    )
+
+
+async def _prerequisite_status(
+    conn: asyncpg.Connection,
+    compliance_type: ComplianceType,
+    mode: ComplianceMode,
+    company_id: UUID,
+) -> list[dict]:
+    """Full dependency list (not just what's missing) so the client can show it before start()."""
+    missing = set(await _engine_prerequisites(conn, compliance_type, mode, company_id))
+    known = await _depends_on(conn, compliance_type, mode)
+    items = [
+        {
+            "compliance_type": dep["compliance_type"],
+            "mode": dep["mode"],
+            "satisfied": dep["compliance_type"] not in missing,
+        }
+        for dep in known
+    ]
+    # Requirements the engine checks that aren't a plain compliance (e.g. a specific
+    # document) — surface them too rather than silently dropping them from the list.
+    # There's no single (type, mode) to link to for these, so mode is null.
+    known_values = {dep["compliance_type"] for dep in known}
+    for extra in sorted(missing - known_values):
+        items.append({"compliance_type": extra, "mode": None, "satisfied": False})
+    return items
+
+
+def _template_payload(definition: dict) -> dict:
+    """Public shape of a template (GET /workflow/templates)."""
+    return {
+        "id": str(definition["template_id"]),
+        "compliance_type": definition["compliance_type"],
+        "mode": definition["mode"],
+        "total_steps": definition["total_steps"],
+        "depends_on": definition["depends_on"],
+        "required_documents": definitions.required_doc_types(definition),
+        "required_document_details": definition["required_documents"],
+        "steps": [
+            {
+                "step_number": s["step_number"],
+                "step_name": s["step_name"],
+                "field_schema": s["fields"],
+            }
+            for s in definition["steps"]
+        ],
+    }
+
+
 def _parse_step_data(raw: Any) -> dict[str, Any]:
     if raw is None:
         return {}
@@ -91,6 +174,7 @@ def _format_step_row(
     updated_at,
     compliance_type: ComplianceType,
     mode: ComplianceMode,
+    fields: list[dict[str, Any]],
     company_data: dict[str, Any] | None = None,
 ) -> dict:
     data = _parse_step_data(step_data)
@@ -101,6 +185,7 @@ def _format_step_row(
             compliance_type=compliance_type,
             mode=mode,
             step_number=step_number,
+            fields=fields,
         )
     return {
         "step_number": step_number,
@@ -110,16 +195,61 @@ def _format_step_row(
         "step_data": data,
         "is_draft": bool(data) and not is_completed,
         "updated_at": updated_at.isoformat() if updated_at else None,
-        "field_schema": get_step_field_schema(compliance_type, mode, step_number),
+        "field_schema": fields,
     }
+
+
+def _steps_payload(
+    definition: dict,
+    progress_rows: list[asyncpg.Record],
+    *,
+    compliance_type: ComplianceType,
+    mode: ComplianceMode,
+    company_data: dict[str, Any] | None,
+) -> list[dict]:
+    """Steps of a definition joined with whatever the client has saved so far."""
+    progress = {row["step_number"]: row for row in progress_rows}
+    steps: list[dict] = []
+    for step in definition["steps"]:
+        row = progress.get(step["step_number"])
+        steps.append(
+            _format_step_row(
+                step["step_number"],
+                step["step_name"],
+                is_completed=bool(row and row["is_completed"]),
+                completed_at=row["completed_at"] if row else None,
+                step_data=row["step_data"] if row else {},
+                updated_at=row["updated_at"] if row else None,
+                compliance_type=compliance_type,
+                mode=mode,
+                fields=step["fields"],
+                company_data=company_data,
+            )
+        )
+    return steps
 
 
 class WorkflowService:
     def __init__(self, pool: asyncpg.Pool):
         self._pool = pool
 
-    def _steps_for(self, compliance_type: ComplianceType, mode: ComplianceMode) -> list[str]:
-        return WORKFLOW_STEP_DEFINITIONS.get((compliance_type, mode), ["Step 1"])
+    async def _definition(
+        self,
+        conn: asyncpg.Connection,
+        compliance_type: ComplianceType,
+        mode: ComplianceMode,
+        workflow: asyncpg.Record | None = None,
+    ) -> dict:
+        """What a filing runs on: its own snapshot once started, else the live template."""
+        template = None
+        if workflow is None or not workflow["definition"]:
+            template = await definitions.load_template_definition(
+                conn, compliance_type.value, mode.value, include_inactive=workflow is not None
+            )
+        definition = definitions.workflow_definition(workflow, template)
+        if definition is None:
+            raise HTTPException(status_code=404, detail="This compliance is not available")
+        return definition
 
     async def start(
         self,
@@ -129,30 +259,41 @@ class WorkflowService:
         role: UserRole,
         compliance_type: ComplianceType,
         mode: ComplianceMode,
+        allow_inactive: bool = False,
     ) -> asyncpg.Record:
+        """Start (or re-open) a filing.
+
+        `allow_inactive` lets an already-paid cart line start even if an admin has
+        since switched the compliance off; new purchases of it are still blocked.
+        """
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 _ensure_company(await require_company_client(conn, company_id, user_id, role))
-                template = await compliance_repo.fetch_workflow_template(
-                    conn, compliance_type.value, mode.value
+                existing = await compliance_repo.fetch_workflow(
+                    conn, company_id, compliance_type.value, mode.value
                 )
-                if template is None:
-                    steps = self._steps_for(compliance_type, mode)
-                    template = await compliance_repo.upsert_workflow_template(
-                        conn,
-                        compliance_type.value,
-                        mode.value,
-                        len(steps),
-                    )
-                    assert template is not None
-                    await compliance_repo.replace_template_steps(conn, template["id"], steps)
-                row = await compliance_repo.upsert_workflow(
+                template = await definitions.load_template_definition(
                     conn,
-                    company_id,
                     compliance_type.value,
                     mode.value,
-                    int(template["total_steps"]),
+                    include_inactive=allow_inactive or existing is not None,
                 )
+                if template is None:
+                    raise HTTPException(status_code=404, detail="This compliance is not available")
+                _raise_prerequisites(
+                    await _engine_prerequisites(conn, compliance_type, mode, company_id)
+                )
+                if existing is None:
+                    await compliance_repo.insert_workflow_if_missing(
+                        conn, company_id, compliance_type.value, mode.value, template["total_steps"]
+                    )
+                row = _ensure_workflow(
+                    await compliance_repo.fetch_workflow(
+                        conn, company_id, compliance_type.value, mode.value
+                    )
+                )
+                # Freeze the steps this filing will follow (no-op if already frozen).
+                await definitions.snapshot_workflow(conn, row["id"], template)
                 await compliance_repo.mark_workflow_status(
                     conn, row["id"], ComplianceStatus.PENDING.value, 0
                 )
@@ -162,20 +303,11 @@ class WorkflowService:
                     )
                 )
 
-    async def _resolve_template_step(
-        self,
-        conn: asyncpg.Connection,
-        compliance_type: ComplianceType,
-        mode: ComplianceMode,
-        step_number: int,
-        step_name: str | None,
-    ) -> str:
-        template_step = await compliance_repo.fetch_template_step(
-            conn, compliance_type.value, mode.value, step_number
-        )
-        if template_step is None:
+    def _resolve_step(self, definition: dict, step_number: int, step_name: str | None) -> dict:
+        step = definitions.find_step(definition, step_number=step_number)
+        if step is None:
             raise HTTPException(status_code=400, detail="Workflow template step not configured")
-        expected = str(template_step["step_name"])
+        expected = str(step["step_name"])
         if step_name is not None and step_name.strip() != expected:
             raise HTTPException(
                 status_code=400,
@@ -184,7 +316,7 @@ class WorkflowService:
                     "expected_step_name": expected,
                 },
             )
-        return expected
+        return step
 
     async def save_step_draft(
         self,
@@ -207,9 +339,10 @@ class WorkflowService:
                 )
                 if step_number < 1 or step_number > wf["total_steps"]:
                     raise HTTPException(status_code=400, detail="Invalid step number")
-                expected = await self._resolve_template_step(
-                    conn, compliance_type, mode, step_number, None
+                step = self._resolve_step(
+                    await self._definition(conn, compliance_type, mode, wf), step_number, None
                 )
+                expected = str(step["step_name"])
                 if not isinstance(step_data, dict):
                     raise HTTPException(status_code=400, detail="data must be a JSON object")
 
@@ -247,6 +380,7 @@ class WorkflowService:
                     updated_at=row["updated_at"],
                     compliance_type=compliance_type,
                     mode=mode,
+                    fields=step["fields"],
                     company_data=company_data,
                 )
 
@@ -272,9 +406,10 @@ class WorkflowService:
                 )
                 if step_number < 1 or step_number > wf["total_steps"]:
                     raise HTTPException(status_code=400, detail="Invalid step number")
-                expected = await self._resolve_template_step(
-                    conn, compliance_type, mode, step_number, step_name
+                step = self._resolve_step(
+                    await self._definition(conn, compliance_type, mode, wf), step_number, step_name
                 )
+                expected = str(step["step_name"])
                 if expected == MAKE_PAYMENT_STEP_NAME:
                     entitlement = await entitlements_repo.fetch_payment_entitlement(
                         conn,
@@ -302,10 +437,16 @@ class WorkflowService:
                     compliance_type=compliance_type,
                     mode=mode,
                     step_number=step_number,
+                    fields=step["fields"],
                 )
                 try:
                     validate_step_data(
-                        compliance_type, mode, step_number, merged_payload, require_all=True
+                        compliance_type,
+                        mode,
+                        step_number,
+                        merged_payload,
+                        require_all=True,
+                        fields=step["fields"],
                     )
                 except ValueError as exc:
                     raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -355,6 +496,7 @@ class WorkflowService:
                 role=role,
                 compliance_type=compliance_type,
                 mode=mode,
+                allow_inactive=True,
             )
 
         async with self._pool.acquire() as conn:
@@ -365,13 +507,14 @@ class WorkflowService:
                 if wf is None:
                     return None
 
-                template_step = await compliance_repo.fetch_template_step_by_name(
-                    conn, compliance_type.value, mode.value, MAKE_PAYMENT_STEP_NAME
+                payment_step = definitions.find_step(
+                    await self._definition(conn, compliance_type, mode, wf),
+                    step_name=MAKE_PAYMENT_STEP_NAME,
                 )
-                if template_step is None:
+                if payment_step is None:
                     return wf
 
-                step_number = int(template_step["step_number"])
+                step_number = int(payment_step["step_number"])
                 existing = await compliance_repo.fetch_step_progress(conn, wf["id"], step_number)
                 if existing and existing["is_completed"]:
                     return wf
@@ -459,13 +602,12 @@ class WorkflowService:
         doc_type: str,
         file: UploadFile,
     ) -> UUID:
-        safe_name = Path(file.filename or "upload").name
-        data = await file.read()
-        folder = build_upload_folder(
+        storage_url = await store_upload(
+            file,
+            doc_type=doc_type,
             company_id=str(company_id),
             compliance_type=compliance_type.value,
         )
-        storage_url = upload_file(data=data, filename=safe_name, folder=folder)
         async with self._pool.acquire() as conn:
             if role == UserRole.CLIENT:
                 _ensure_company(await require_company_client(conn, company_id, user_id, role))
@@ -524,8 +666,13 @@ class WorkflowService:
                 await compliance_repo.fetch_workflow(conn, company_id, compliance_type.value, mode.value)
             )
             company_data = await fetch_company_data_map(conn, company_id)
-            steps = await compliance_repo.list_template_steps_with_progress(
-                conn, wf["id"], compliance_type.value, mode.value
+            definition = await self._definition(conn, compliance_type, mode, wf)
+            steps = _steps_payload(
+                definition,
+                await compliance_repo.list_step_progress(conn, wf["id"]),
+                compliance_type=compliance_type,
+                mode=mode,
+                company_data=company_data,
             )
             docs = await compliance_repo.list_document_types(conn, company_id, compliance_type.value)
             outputs = await compliance_repo.list_workflow_outputs(conn, wf["id"])
@@ -545,22 +692,13 @@ class WorkflowService:
                     "current_step": wf["current_step"],
                     "total_steps": wf["total_steps"],
                     "last_updated": wf["last_updated"].isoformat(),
+                    "status_reason": wf["status_reason"],
+                    "required_action": wf["required_action"],
                 },
                 "payment": _payment_payload(entitlement),
-                "steps": [
-                    _format_step_row(
-                        s["step_number"],
-                        s["step_name"],
-                        is_completed=s["is_completed"],
-                        completed_at=s["completed_at"],
-                        step_data=s["step_data"],
-                        updated_at=s["updated_at"],
-                        compliance_type=compliance_type,
-                        mode=mode,
-                        company_data=company_data,
-                    )
-                    for s in steps
-                ],
+                "steps": steps,
+                "required_documents": definitions.required_doc_types(definition),
+                "required_document_details": definition["required_documents"],
                 "documents_uploaded": docs,
                 "outputs": [
                     {
@@ -593,22 +731,6 @@ class WorkflowService:
         async with self._pool.acquire() as conn:
             _ensure_company(await require_company_read(conn, company_id, user_id, role))
 
-            if step_number is not None:
-                template_step = await compliance_repo.fetch_template_step(
-                    conn, compliance_type.value, mode.value, step_number
-                )
-            else:
-                assert step_name is not None
-                template_step = await compliance_repo.fetch_template_step_by_name(
-                    conn, compliance_type.value, mode.value, step_name
-                )
-
-            if template_step is None:
-                raise HTTPException(status_code=404, detail="Workflow step not found")
-
-            resolved_number = int(template_step["step_number"])
-            resolved_name = str(template_step["step_name"])
-
             wf = await compliance_repo.fetch_workflow(
                 conn, company_id, compliance_type.value, mode.value
             )
@@ -617,6 +739,17 @@ class WorkflowService:
                     status_code=404,
                     detail="Workflow not found. Start it first or complete cart payment.",
                 )
+
+            step = definitions.find_step(
+                await self._definition(conn, compliance_type, mode, wf),
+                step_number=step_number,
+                step_name=step_name,
+            )
+            if step is None:
+                raise HTTPException(status_code=404, detail="Workflow step not found")
+
+            resolved_number = int(step["step_number"])
+            resolved_name = str(step["step_name"])
 
             progress = await compliance_repo.fetch_step_progress(conn, wf["id"], resolved_number)
             step_data = _parse_step_data(progress["step_data"] if progress else None)
@@ -628,6 +761,7 @@ class WorkflowService:
                 step_number=resolved_number,
                 step_data=step_data,
                 company_data=company_data,
+                fields=step["fields"],
             )
 
             entitlement = await entitlements_repo.fetch_payment_entitlement(
@@ -665,53 +799,37 @@ class WorkflowService:
 
     async def list_templates(self) -> list[dict]:
         async with self._pool.acquire() as conn:
-            templates = await compliance_repo.list_workflow_templates(conn)
-            payload: list[dict] = []
-            for t in templates:
-                steps = await compliance_repo.list_template_steps(conn, t["id"])
-                ct = ComplianceType(t["compliance_type"])
-                md = ComplianceMode(t["mode"])
-                payload.append(
-                    {
-                        "id": str(t["id"]),
-                        "compliance_type": t["compliance_type"],
-                        "mode": t["mode"],
-                        "total_steps": t["total_steps"],
-                        "steps": [
-                            {
-                                "step_number": s["step_number"],
-                                "step_name": s["step_name"],
-                                "field_schema": get_step_field_schema(ct, md, s["step_number"]),
-                            }
-                            for s in steps
-                        ],
-                    }
-                )
-            return payload
+            return [
+                _template_payload(d) for d in await definitions.list_template_definitions(conn)
+            ]
 
     async def get_template(self, compliance_type: ComplianceType, mode: ComplianceMode) -> dict:
         async with self._pool.acquire() as conn:
-            template = await compliance_repo.fetch_workflow_template(
+            definition = await definitions.load_template_definition(
                 conn, compliance_type.value, mode.value
             )
-            if template is None:
+            if definition is None:
                 raise HTTPException(status_code=404, detail="Workflow template not found")
-            steps = await compliance_repo.list_template_steps(conn, template["id"])
+            return _template_payload(definition)
+
+    async def get_prerequisites(
+        self,
+        *,
+        company_id: UUID,
+        user_id: UUID,
+        role: UserRole,
+        compliance_type: ComplianceType,
+        mode: ComplianceMode,
+    ) -> dict:
+        """Read-only prerequisite check so the client can show what's missing before start()."""
+        async with self._pool.acquire() as conn:
+            _ensure_company(await require_company_read(conn, company_id, user_id, role))
+            items = await _prerequisite_status(conn, compliance_type, mode, company_id)
             return {
-                "id": str(template["id"]),
-                "compliance_type": template["compliance_type"],
-                "mode": template["mode"],
-                "total_steps": template["total_steps"],
-                "steps": [
-                    {
-                        "step_number": s["step_number"],
-                        "step_name": s["step_name"],
-                        "field_schema": get_step_field_schema(
-                            compliance_type, mode, s["step_number"]
-                        ),
-                    }
-                    for s in steps
-                ],
+                "compliance_type": compliance_type.value,
+                "mode": mode.value,
+                "depends_on": items,
+                "all_satisfied": all(i["satisfied"] for i in items),
             }
 
     async def get_company_progress_admin(self, *, company_id: UUID) -> dict:
@@ -724,7 +842,6 @@ class WorkflowService:
             return await self._build_company_progress(conn, company_id)
 
     async def _build_company_progress(self, conn: asyncpg.Connection, company_id: UUID) -> dict:
-        templates = await compliance_repo.list_workflow_templates(conn)
         company_data = await fetch_company_data_map(conn, company_id)
         instances = {
             _workflow_key(w["compliance_type"], w["mode"]): w
@@ -736,59 +853,40 @@ class WorkflowService:
         }
 
         workflows: list[dict] = []
-        for template in templates:
+        # A compliance an admin has switched off still shows for companies that
+        # already have a filing on it; everyone else only sees active ones.
+        for template in await definitions.list_template_definitions(conn, include_inactive=True):
             ct = template["compliance_type"]
             mode = template["mode"]
-            key = _workflow_key(ct, mode)
-            instance = instances.get(key)
-            required_docs = sorted(REQUIRED_DOCS.get((ComplianceType(ct), ComplianceMode(mode)), set()))
-            uploaded_docs = await compliance_repo.list_document_types(conn, company_id, ct)
+            instance = instances.get(_workflow_key(ct, mode))
+            if instance is None and not template["is_active"]:
+                continue
             ct_enum = ComplianceType(ct)
             mode_enum = ComplianceMode(mode)
+            definition = definitions.workflow_definition(instance, template)
+            assert definition is not None
+            uploaded_docs = await compliance_repo.list_document_types(conn, company_id, ct)
+            required_docs = definitions.required_doc_types(definition)
 
+            steps = _steps_payload(
+                definition,
+                await compliance_repo.list_step_progress(conn, instance["id"]) if instance else [],
+                compliance_type=ct_enum,
+                mode=mode_enum,
+                company_data=company_data,
+            )
             if instance is None:
-                template_steps = await compliance_repo.list_template_steps(conn, template["id"])
-                steps = [
-                    _format_step_row(
-                        s["step_number"],
-                        s["step_name"],
-                        is_completed=False,
-                        completed_at=None,
-                        step_data={},
-                        updated_at=None,
-                        compliance_type=ct_enum,
-                        mode=mode_enum,
-                        company_data=company_data,
-                    )
-                    for s in template_steps
-                ]
                 steps_completed = 0
                 workflow_status = ComplianceStatus.NOT_STARTED.value
                 workflow_id = None
                 current_step = 0
             else:
                 workflow_id = instance["id"]
-                steps = [
-                    _format_step_row(
-                        s["step_number"],
-                        s["step_name"],
-                        is_completed=s["is_completed"],
-                        completed_at=s["completed_at"],
-                        step_data=s["step_data"],
-                        updated_at=s["updated_at"],
-                        compliance_type=ct_enum,
-                        mode=mode_enum,
-                        company_data=company_data,
-                    )
-                    for s in await compliance_repo.list_template_steps_with_progress(
-                        conn, workflow_id, ct, mode
-                    )
-                ]
                 steps_completed = sum(1 for s in steps if s["is_completed"])
                 workflow_status = instance["status"]
                 current_step = instance["current_step"]
 
-            total_steps = int(template["total_steps"])
+            total_steps = len(definition["steps"])
             missing_docs = [d for d in required_docs if d not in uploaded_docs]
             reg = registry_by_type.get(ct)
 
@@ -805,6 +903,7 @@ class WorkflowService:
                     "progress_percent": round((steps_completed / total_steps) * 100) if total_steps else 0,
                     "steps": steps,
                     "required_documents": required_docs,
+                    "required_document_details": definition["required_documents"],
                     "documents_uploaded": uploaded_docs,
                     "missing_documents": missing_docs,
                     "registry": {
@@ -847,21 +946,17 @@ class WorkflowService:
                 if completed < wf["total_steps"]:
                     missing.append(f"STEPS: {completed}/{wf['total_steps']}")
 
-                required_docs = REQUIRED_DOCS.get((compliance_type, mode), set())
+                required_docs = definitions.required_doc_types(
+                    await self._definition(conn, compliance_type, mode, wf)
+                )
                 uploaded_docs = set(
                     await compliance_repo.list_document_types(conn, company_id, compliance_type.value)
                 )
-                for doc in sorted(required_docs):
+                for doc in required_docs:
                     if doc not in uploaded_docs:
                         missing.append(f"DOCUMENT:{doc}")
 
-                engine = ComplianceEngine(conn)
-                if compliance_type == ComplianceType.FIRS and mode == ComplianceMode.RENEWAL:
-                    missing.extend(await engine.missing_for_firs_tcc(company_id))
-                if compliance_type == ComplianceType.PENCOM and mode == ComplianceMode.RENEWAL:
-                    missing.extend(await engine.missing_for_pencom_renewal(company_id))
-                if compliance_type in (ComplianceType.BPP_FEDERAL, ComplianceType.BPP_STATE):
-                    missing.extend(await engine.missing_for_bpp(company_id))
+                missing.extend(await _engine_prerequisites(conn, compliance_type, mode, company_id))
 
                 deduped = list(dict.fromkeys(missing))
                 if deduped:
@@ -933,7 +1028,14 @@ class WorkflowService:
         mode: ComplianceMode,
         status: ComplianceStatus,
         current_step: int | None = None,
+        reason: str | None = None,
+        required_action: str | None = None,
     ) -> dict:
+        if status in (ComplianceStatus.REJECTED, ComplianceStatus.INFO_REQUIRED) and not reason:
+            raise HTTPException(
+                status_code=422,
+                detail="A reason is required when marking a workflow REJECTED or INFO_REQUIRED",
+            )
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 _ensure_company(await require_company_agent(conn, company_id, user_id, role))
@@ -943,7 +1045,15 @@ class WorkflowService:
                     )
                 )
                 step = current_step if current_step is not None else wf["current_step"]
-                await compliance_repo.mark_workflow_status(conn, wf["id"], status.value, step)
+                await compliance_repo.mark_workflow_status(
+                    conn,
+                    wf["id"],
+                    status.value,
+                    step,
+                    reason=reason,
+                    required_action=required_action,
+                    updated_by=user_id,
+                )
                 updated = await compliance_repo.fetch_workflow(
                     conn, company_id, compliance_type.value, mode.value
                 )
@@ -952,6 +1062,8 @@ class WorkflowService:
                     "workflow_id": str(updated["id"]),
                     "status": updated["status"],
                     "current_step": updated["current_step"],
+                    "status_reason": updated["status_reason"],
+                    "required_action": updated["required_action"],
                 }
 
     async def complete_workflow_as_agent(

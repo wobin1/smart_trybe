@@ -25,6 +25,7 @@ async def fetch_company_for_agent(
     return await conn.fetchrow(
         """
         SELECT c.id, c.name, c.rc_number, c.tin, c.address, c.user_id, c.created_at,
+               c.registration_type::text AS registration_type,
                u.email AS owner_email, u.full_name AS owner_name
         FROM companies c
         JOIN users u ON u.id = c.user_id

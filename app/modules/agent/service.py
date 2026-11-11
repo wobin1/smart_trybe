@@ -122,6 +122,8 @@ class AgentService:
         mode: ComplianceMode,
         status: ComplianceStatus,
         current_step: int | None = None,
+        reason: str | None = None,
+        required_action: str | None = None,
     ) -> dict:
         return await self._workflows.update_workflow_status(
             company_id=company_id,
@@ -131,6 +133,8 @@ class AgentService:
             mode=mode,
             status=status,
             current_step=current_step,
+            reason=reason,
+            required_action=required_action,
         )
 
     async def complete_workflow(

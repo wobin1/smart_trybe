@@ -63,6 +63,23 @@ async def get_company_workflow_progress(
     )
 
 
+@router.get("/{compliance_type}/{mode}/companies/{company_id}/prerequisites")
+async def get_workflow_prerequisites(
+    compliance_type: ComplianceType,
+    mode: ComplianceMode,
+    company_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+    svc: WorkflowService = Depends(get_workflow_service),
+):
+    return await svc.get_prerequisites(
+        company_id=company_id,
+        user_id=user.id,
+        role=user.role,
+        compliance_type=compliance_type,
+        mode=mode,
+    )
+
+
 @router.post("/{compliance_type}/{mode}/companies/{company_id}/start")
 async def start_workflow(
     compliance_type: ComplianceType,

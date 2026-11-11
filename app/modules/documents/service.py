@@ -27,14 +27,14 @@ def _ensure_company(row: asyncpg.Record | None) -> asyncpg.Record:
 def _format_document(company_id: UUID, row: asyncpg.Record) -> dict:
     storage_ref = row["s3_url"]
     filename = filename_from_storage_ref(storage_ref)
-    if is_remote_url(storage_ref):
-        view_url = storage_ref
-        download_url = cloudinary_attachment_url(storage_ref, filename)
-    else:
-        view_path = build_file_path(str(company_id), str(row["id"]))
-        download_path = build_file_path(str(company_id), str(row["id"]), download=True)
-        view_url = build_public_url(view_path)
-        download_url = build_public_url(download_path)
+    # Always route through the authenticated /file gateway rather than handing out
+    # the raw storage URL — Cloudinary secure_url/fl_attachment links are permanent
+    # and unsigned, so leaking them here would let anyone with the link fetch
+    # identity documents without authenticating (see compliance audit finding DP-2).
+    view_path = build_file_path(str(company_id), str(row["id"]))
+    download_path = build_file_path(str(company_id), str(row["id"]), download=True)
+    view_url = build_public_url(view_path)
+    download_url = build_public_url(download_path)
     return {
         "id": str(row["id"]),
         "compliance_type": row["compliance_type"],

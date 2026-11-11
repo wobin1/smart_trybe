@@ -105,18 +105,22 @@ async def assign_agent_to_company(
     company_id: UUID,
     agent_user_id: UUID,
     assigned_by: UUID,
+    assignment_reason: str | None = None,
 ) -> asyncpg.Record:
     return await conn.fetchrow(
         """
-        INSERT INTO company_agent_assignments (company_id, agent_user_id, assigned_by)
-        VALUES ($1, $2, $3)
+        INSERT INTO company_agent_assignments (company_id, agent_user_id, assigned_by, assignment_reason)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (company_id, agent_user_id) DO UPDATE
-        SET assigned_by = EXCLUDED.assigned_by, assigned_at = NOW()
-        RETURNING company_id, agent_user_id, assigned_by, assigned_at
+        SET assigned_by = EXCLUDED.assigned_by,
+            assignment_reason = EXCLUDED.assignment_reason,
+            assigned_at = NOW()
+        RETURNING company_id, agent_user_id, assigned_by, assignment_reason, assigned_at
         """,
         company_id,
         agent_user_id,
         assigned_by,
+        assignment_reason,
     )
 
 
@@ -142,7 +146,7 @@ async def list_assignments_for_company(
 ) -> list[asyncpg.Record]:
     return await conn.fetch(
         """
-        SELECT a.company_id, a.agent_user_id, a.assigned_by, a.assigned_at,
+        SELECT a.company_id, a.agent_user_id, a.assigned_by, a.assigned_at, a.assignment_reason,
                u.email AS agent_email, u.full_name AS agent_name
         FROM company_agent_assignments a
         JOIN users u ON u.id = a.agent_user_id
@@ -159,6 +163,7 @@ async def list_companies_for_agent(
     return await conn.fetch(
         """
         SELECT c.id, c.name, c.rc_number, c.tin, c.address, c.user_id, c.created_at,
+               c.registration_type::text AS registration_type,
                u.email AS owner_email, u.full_name AS owner_name,
                a.assigned_at
         FROM company_agent_assignments a

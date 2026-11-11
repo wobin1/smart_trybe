@@ -11,11 +11,27 @@ _DEFAULT_FIELDS: list[FieldDef] = [
     {"key": "notes", "label": "Notes", "type": "text", "required": False},
 ]
 
+_GENERIC_REGISTRATION_FIELDS: StepFields = {
+    1: [
+        {"key": "cac_rc_number", "label": "CAC RC number", "type": "text", "required": True},
+        {"key": "business_address", "label": "Business address", "type": "textarea", "required": True},
+        {"key": "contact_email", "label": "Contact email", "type": "email", "required": True},
+        {"key": "contact_phone", "label": "Contact phone", "type": "text", "required": True},
+    ],
+    2: [{"key": "documents_uploaded", "label": "Required documents uploaded", "type": "boolean", "required": True}],
+    3: [{"key": "application_confirmed", "label": "Application confirmed", "type": "boolean", "required": True}],
+    4: [
+        {"key": "payment_reference", "label": "Payment reference", "type": "text", "required": False},
+        {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
+    ],
+}
+
 WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = {
     (ComplianceType.CAC, ComplianceMode.NEW): {
         1: [
             {"key": "proposed_name_1", "label": "First proposed company name", "type": "text", "required": True},
             {"key": "proposed_name_2", "label": "Second proposed company name", "type": "text", "required": True},
+            {"key": "proposed_name_3", "label": "Third proposed company name (optional)", "type": "text", "required": False},
         ],
         2: [
             {"key": "business_activity", "label": "Business activity", "type": "textarea", "required": True},
@@ -276,6 +292,9 @@ WORKFLOW_STEP_FIELDS: dict[tuple[ComplianceType, ComplianceMode], StepFields] = 
             {"key": "payment_amount", "label": "Payment amount (NGN)", "type": "number", "required": False},
         ],
     },
+    (ComplianceType.NITDA, ComplianceMode.REGISTRATION): _GENERIC_REGISTRATION_FIELDS,
+    (ComplianceType.CPN, ComplianceMode.REGISTRATION): _GENERIC_REGISTRATION_FIELDS,
+    (ComplianceType.NCS, ComplianceMode.REGISTRATION): _GENERIC_REGISTRATION_FIELDS,
 }
 
 
@@ -284,6 +303,7 @@ def get_step_field_schema(
     mode: ComplianceMode,
     step_number: int,
 ) -> list[FieldDef]:
+    """Code-default fields for a built-in step (used to seed the database)."""
     workflow_fields = WORKFLOW_STEP_FIELDS.get((compliance_type, mode), {})
     return workflow_fields.get(step_number, list(_DEFAULT_FIELDS))
 
@@ -295,12 +315,17 @@ def validate_step_data(
     data: dict[str, Any],
     *,
     require_all: bool = False,
+    fields: list[FieldDef] | None = None,
 ) -> None:
-    """Raise ValueError with message if required fields missing (on complete)."""
+    """Raise ValueError with message if required fields missing (on complete).
+
+    `fields` is the step's stored definition; without it the code default is used.
+    """
     if not isinstance(data, dict):
         raise ValueError("step data must be a JSON object")
 
-    fields = get_step_field_schema(compliance_type, mode, step_number)
+    if fields is None:
+        fields = get_step_field_schema(compliance_type, mode, step_number)
     if not require_all:
         return
 

@@ -111,6 +111,9 @@ class CatalogService:
             "description": row["description"],
             "icon_key": row["icon_key"],
             "base_price_ngn": float(row["base_price_ngn"]),
+            "regulator_name": row["regulator_name"],
+            "display_order": row["display_order"],
+            "is_system": row["is_system"],
             "category": {
                 "id": str(row["category_id"]),
                 "slug": row["category_slug"],

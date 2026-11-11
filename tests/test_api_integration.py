@@ -86,18 +86,33 @@ def test_cac_company_requires_auth(client: TestClient):
     assert listed.status_code == 200
     assert any(row["id"] == cid for row in listed.json())
 
-    patch = client.patch(
+    first = client.get(f"/api/v1/cac/companies/{cid}", headers=headers).json()
+    original_name = first["name"]
+    # The registration type chosen at setup is returned, so the UI can tell a
+    # new registration from an existing company.
+    assert first["registration_type"] in ("NEW", "EXISTING")
+    assert any(c["registration_type"] == first["registration_type"] for c in client.get("/api/v1/cac/companies", headers=headers).json())
+
+    # The company name is fixed once set; other profile fields stay editable.
+    rename = client.patch(
         f"/api/v1/cac/companies/{cid}",
         headers=headers,
         json={"name": "Acme Ltd (updated)", "address": "Abuja"},
     )
+    assert rename.status_code == 403
+
+    patch = client.patch(
+        f"/api/v1/cac/companies/{cid}",
+        headers=headers,
+        json={"address": "Abuja"},
+    )
     assert patch.status_code == 200
-    assert patch.json()["name"] == "Acme Ltd (updated)"
+    assert patch.json()["name"] == original_name
     assert patch.json()["address"] == "Abuja"
 
     got = client.get(f"/api/v1/cac/companies/{cid}", headers=headers)
     assert got.status_code == 200
-    assert got.json()["name"] == "Acme Ltd (updated)"
+    assert got.json()["name"] == original_name
     assert got.json()["address"] == "Abuja"
 
     empty_patch = client.patch(f"/api/v1/cac/companies/{cid}", headers=headers, json={})
@@ -139,7 +154,8 @@ def test_cac_company_requires_auth(client: TestClient):
     doc = next(d for d in library.json()["documents"] if d["id"] == doc_id)
     assert doc["filename"] == "cert.pdf"
     assert doc["content_type"] == "application/pdf"
-    assert doc["view_url"].startswith("https://res.cloudinary.com/")
+    # Documents are served through the authenticated gateway, never as a raw storage URL.
+    assert doc["view_url"].endswith(f"/api/v1/companies/{cid}/documents/{doc_id}/file")
 
     view = client.get(
         f"/api/v1/companies/{cid}/documents/{doc_id}/file",
@@ -192,7 +208,7 @@ def test_cac_company_requires_auth(client: TestClient):
         f"/api/v1/workflow/CAC/NEW/companies/{cid}/steps/1/complete",
         headers=headers,
         json={
-            "step_name": "Choose 2 proposed company names",
+            "step_name": "Choose proposed company names",
             "data": {
                 "proposed_name_1": "Acme Alpha Ltd",
                 "proposed_name_2": "Acme Beta Ltd",

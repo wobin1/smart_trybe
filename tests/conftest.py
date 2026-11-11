@@ -20,11 +20,37 @@ os.environ["PAYMENT_DEV_MODE"] = os.environ.get("PAYMENT_DEV_MODE", "true")
 os.environ.setdefault("PAYSTACK_SECRET_KEY", "")
 
 
+async def _reactivate_firs_registration() -> None:
+    """Switch the retired FIRS/NEW application back on in the test database.
+
+    FIRS new registration was retired from the client catalog (each agency now has
+    one application), but many tests use it as their sample multi-step workflow.
+    Those tests are about workflow mechanics, not about which applications are on
+    sale, so the test database keeps it active. Retirement itself is covered by
+    tests/test_admin_compliances.py using ITF/RENEWAL.
+    """
+    import asyncpg
+
+    conn = await asyncpg.connect(os.environ["TEST_DATABASE_URL"])
+    try:
+        for table in ("compliance_catalog", "workflow_templates"):
+            await conn.execute(
+                f"UPDATE {table} SET is_active = TRUE "
+                "WHERE compliance_type = 'FIRS' AND mode = 'NEW'::compliance_mode"
+            )
+    finally:
+        await conn.close()
+
+
 @pytest.fixture(scope="module")
 def client() -> TestClient:
+    import asyncio
+
     from app.main import app
 
     with TestClient(app) as c:
+        if os.getenv("TEST_DATABASE_URL"):
+            asyncio.run(_reactivate_firs_registration())
         yield c
 
 

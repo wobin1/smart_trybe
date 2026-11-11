@@ -8,55 +8,51 @@ logger = logging.getLogger(__name__)
 
 
 async def seed_compliance_catalog(conn: asyncpg.Connection) -> int:
-    category_ids: dict[str, str] = {}
+    """Insert built-in categories and compliances that are missing.
+
+    Existing rows are never overwritten: the admin dashboard owns them from then on.
+    """
     for row in CATEGORY_SEED:
-        record = await conn.fetchrow(
+        await conn.execute(
             """
             INSERT INTO compliance_categories (slug, name, description, display_order)
             VALUES ($1, $2, $3, $4)
-            ON CONFLICT (slug) DO UPDATE SET
-                name = EXCLUDED.name,
-                description = EXCLUDED.description,
-                display_order = EXCLUDED.display_order
-            RETURNING id
+            ON CONFLICT (slug) DO NOTHING
             """,
             row["slug"],
             row["name"],
             row["description"],
             row["display_order"],
         )
-        assert record is not None
-        category_ids[row["slug"]] = str(record["id"])
 
     count = 0
     for item in CATALOG_SEED:
-        category_id = category_ids[item["category_slug"]]
         result = await conn.execute(
             """
             INSERT INTO compliance_catalog (
                 compliance_type, mode, category_id, display_name, description,
-                icon_key, base_price_ngn
+                icon_key, base_price_ngn, is_active, regulator_name, display_order, is_system
             )
-            VALUES (
-                $1::compliance_type, $2::compliance_mode, $3::uuid,
-                $4, $5, $6, $7
-            )
-            ON CONFLICT (compliance_type, mode) DO UPDATE SET
-                category_id = EXCLUDED.category_id,
-                display_name = EXCLUDED.display_name,
-                description = EXCLUDED.description,
-                icon_key = EXCLUDED.icon_key,
-                base_price_ngn = EXCLUDED.base_price_ngn
+            SELECT
+                $1::compliance_type, $2::compliance_mode, cat.id,
+                $4, $5, $6, $7, $8, $9, $10, TRUE
+            FROM compliance_categories cat
+            WHERE cat.slug = $3
+            ON CONFLICT (compliance_type, mode) DO NOTHING
             """,
             item["compliance_type"].value,
             item["mode"].value,
-            category_id,
+            item["category_slug"],
             item["display_name"],
             item["description"],
             item["icon_key"],
             item["base_price_ngn"],
+            item["is_active"],
+            item["regulator_name"],
+            item["display_order"],
         )
-        if result.endswith("1"):
+        if result.endswith(" 1"):
             count += 1
-    logger.info("Seeded/updated %s compliance catalog items", count)
+    if count:
+        logger.info("Added %s built-in compliance catalog item(s)", count)
     return count

@@ -64,13 +64,16 @@ async def list_catalog_items(
             c.icon_key,
             c.base_price_ngn,
             c.is_active,
+            c.regulator_name,
+            c.display_order,
+            c.is_system,
             cat.id AS category_id,
             cat.slug AS category_slug,
             cat.name AS category_name
         FROM compliance_catalog c
         JOIN compliance_categories cat ON cat.id = c.category_id
         WHERE {where}
-        ORDER BY cat.display_order, c.display_name
+        ORDER BY c.display_order, c.display_name
         """,
         *args,
     )
@@ -92,6 +95,9 @@ async def fetch_catalog_item(
             c.icon_key,
             c.base_price_ngn,
             c.is_active,
+            c.regulator_name,
+            c.display_order,
+            c.is_system,
             cat.id AS category_id,
             cat.slug AS category_slug,
             cat.name AS category_name
@@ -122,6 +128,9 @@ async def fetch_catalog_item_admin(
             c.icon_key,
             c.base_price_ngn,
             c.is_active,
+            c.regulator_name,
+            c.display_order,
+            c.is_system,
             cat.id AS category_id,
             cat.slug AS category_slug,
             cat.name AS category_name

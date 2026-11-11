@@ -32,6 +32,47 @@ async def _set_user_role(email: str, role: str) -> None:
         await conn.close()
 
 
+async def _seed_bpp_prerequisites(company_id: str) -> None:
+    """Directly mark FIRS/PENCOM/ITF/NSITF as satisfied, bypassing their own onboarding
+    flows — only BPP's cross-compliance gate is under test here."""
+    import asyncpg
+    from datetime import date, timedelta
+    from uuid import UUID
+
+    conn = await asyncpg.connect(os.environ["TEST_DATABASE_URL"])
+    try:
+        future = date.today() + timedelta(days=365)
+        cid = UUID(company_id)
+        for ct in ("FIRS", "PENCOM", "ITF", "NSITF"):
+            await conn.execute(
+                """
+                INSERT INTO compliance_registry (company_id, compliance_type, status, expiry_date, last_updated)
+                VALUES ($1, $2::compliance_type, 'COMPLETED'::compliance_status, $3, NOW())
+                ON CONFLICT (company_id, compliance_type)
+                DO UPDATE SET status = 'COMPLETED'::compliance_status,
+                              expiry_date = EXCLUDED.expiry_date,
+                              last_updated = NOW()
+                """,
+                cid,
+                ct,
+                future,
+            )
+            await conn.execute(
+                """
+                INSERT INTO compliance_workflows
+                    (company_id, compliance_type, mode, status, total_steps, current_step)
+                VALUES ($1, $2::compliance_type, 'RENEWAL'::compliance_mode,
+                        'COMPLETED'::compliance_status, 1, 1)
+                ON CONFLICT (company_id, compliance_type, mode)
+                DO UPDATE SET status = 'COMPLETED'::compliance_status
+                """,
+                cid,
+                ct,
+            )
+    finally:
+        await conn.close()
+
+
 def _register(client: TestClient, prefix: str) -> tuple[str, dict, str]:
     email = f"{prefix}_{uuid4().hex}@example.com"
     password = "securepassword123"
@@ -135,7 +176,9 @@ def test_agent_workflow_complete_and_dashboard(client: TestClient):
     assert registry.status_code == 200
 
 
-def test_bpp_workflow_has_steps(client: TestClient):
+def test_bpp_workflow_blocked_without_prerequisites(client: TestClient):
+    """BPP registration must not be startable before FIRS/PENCOM/ITF/NSITF are in place —
+    surfacing this at submit time (after the client has paid) is the bug being guarded against."""
     _, headers, _ = _register(client, "bpp")
     company = client.post(
         "/api/v1/cac/companies",
@@ -143,6 +186,27 @@ def test_bpp_workflow_has_steps(client: TestClient):
         json={"name": "BPP Co", "registration_type": "NEW"},
     )
     company_id = company.json()["id"]
+
+    start = client.post(
+        f"/api/v1/workflow/BPP_FEDERAL/REGISTRATION/companies/{company_id}/start",
+        headers=headers,
+    )
+    assert start.status_code == 403
+    missing = start.json()["detail"]["missing_compliance"]
+    assert set(missing) == {"FIRS", "PENCOM", "ITF", "NSITF"}
+
+
+def test_bpp_workflow_has_steps(client: TestClient):
+    import asyncio
+
+    _, headers, _ = _register(client, "bpp")
+    company = client.post(
+        "/api/v1/cac/companies",
+        headers=headers,
+        json={"name": "BPP Co", "registration_type": "NEW"},
+    )
+    company_id = company.json()["id"]
+    asyncio.run(_seed_bpp_prerequisites(company_id))
 
     start = client.post(
         f"/api/v1/workflow/BPP_FEDERAL/REGISTRATION/companies/{company_id}/start",

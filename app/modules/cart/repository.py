@@ -219,6 +219,24 @@ async def fetch_payment_by_provider_reference(
     )
 
 
+async def fetch_payments_by_provider_reference(
+    conn: asyncpg.Connection, provider_reference: str
+) -> list[asyncpg.Record]:
+    """Like `fetch_payment_by_provider_reference` but returns every payment
+    sharing the reference — a combined "pay all" charge stamps the same
+    Paystack reference across one payment per company."""
+    return await conn.fetch(
+        """
+        SELECT id, cart_id, payment_reference, total_amount_ngn,
+               status::text AS status, breakdown, paid_at, created_at,
+               provider, provider_reference, authorization_url
+        FROM compliance_payments
+        WHERE provider_reference = $1
+        """,
+        provider_reference,
+    )
+
+
 async def update_payment_provider(
     conn: asyncpg.Connection,
     payment_id: UUID,
@@ -254,11 +272,83 @@ async def fetch_latest_payment(conn: asyncpg.Connection, cart_id: UUID) -> async
     return await conn.fetchrow(
         """
         SELECT id, cart_id, payment_reference, total_amount_ngn,
-               status::text AS status, breakdown, paid_at, created_at
+               status::text AS status, breakdown, paid_at, created_at,
+               provider, provider_reference, authorization_url
         FROM compliance_payments
         WHERE cart_id = $1
         ORDER BY created_at DESC
         LIMIT 1
         """,
         cart_id,
+    )
+
+
+async def list_open_company_ids_for_user(
+    conn: asyncpg.Connection, user_id: UUID
+) -> list[UUID]:
+    """Every company with an OPEN (not yet checked out) cart for this user —
+    the candidates for a "pay all" checkout."""
+    rows = await conn.fetch(
+        """
+        SELECT DISTINCT company_id
+        FROM compliance_carts
+        WHERE user_id = $1 AND status = 'OPEN'::cart_status
+        """,
+        user_id,
+    )
+    return [r["company_id"] for r in rows]
+
+
+async def list_pending_payments_for_user(
+    conn: asyncpg.Connection, user_id: UUID
+) -> list[asyncpg.Record]:
+    """Every still-PENDING payment on a CHECKOUT cart owned by this user,
+    across all their companies — what a combined "pay all" charge covers."""
+    return await conn.fetch(
+        """
+        SELECT p.id AS payment_id, p.cart_id, p.total_amount_ngn,
+               p.status::text AS status, c.company_id
+        FROM compliance_payments p
+        JOIN compliance_carts c ON c.id = p.cart_id
+        WHERE c.user_id = $1
+          AND c.status = 'CHECKOUT'::cart_status
+          AND p.status = 'PENDING'::payment_status
+        ORDER BY p.created_at ASC
+        """,
+        user_id,
+    )
+
+
+async def list_carts_for_user(
+    conn: asyncpg.Connection, user_id: UUID
+) -> list[asyncpg.Record]:
+    """All of a client's OPEN/CHECKOUT carts (across every company they own),
+    each with its line items — the data behind the global cart icon so a
+    completed-but-unpaid compliance is never just forgotten on one company's
+    workflow page."""
+    return await conn.fetch(
+        """
+        SELECT
+            c.id AS cart_id,
+            c.company_id,
+            co.name AS company_name,
+            c.status::text AS cart_status,
+            c.updated_at,
+            ci.id AS item_id,
+            ci.compliance_type::text AS compliance_type,
+            ci.mode::text AS mode,
+            ci.unit_price_ngn,
+            ci.added_at,
+            cc.display_name,
+            cc.icon_key
+        FROM compliance_carts c
+        JOIN companies co ON co.id = c.company_id
+        JOIN compliance_cart_items ci ON ci.cart_id = c.id
+        LEFT JOIN compliance_catalog cc
+          ON cc.compliance_type = ci.compliance_type AND cc.mode = ci.mode
+        WHERE c.user_id = $1
+          AND c.status IN ('OPEN'::cart_status, 'CHECKOUT'::cart_status)
+        ORDER BY co.name ASC, c.updated_at ASC, ci.added_at ASC
+        """,
+        user_id,
     )

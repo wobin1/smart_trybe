@@ -46,7 +46,23 @@ async def fetch_company_data_map(
         """,
         company_id,
     )
-    return {row["data_key"]: _parse_json_value(row["value"]) for row in rows}
+    data = {row["data_key"]: _parse_json_value(row["value"]) for row in rows}
+
+    # The company profile is shared data too: what was entered when the company
+    # was set up (RC number, TIN, address) prefills every form that asks for it,
+    # unless the client has since saved a different value.
+    profile = await conn.fetchrow(
+        "SELECT rc_number, tin, address FROM companies WHERE id = $1", company_id
+    )
+    if profile is not None:
+        for key, value in (
+            ("rc_number", profile["rc_number"]),
+            ("tin", profile["tin"]),
+            ("company_address", profile["address"]),
+        ):
+            if value not in (None, "") and data.get(key) in (None, "", []):
+                data[key] = value
+    return data
 
 
 async def upsert_company_data(

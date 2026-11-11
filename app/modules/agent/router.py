@@ -15,6 +15,8 @@ router = APIRouter(prefix="/agent", tags=["Compliance Agent"])
 class UpdateWorkflowStatusBody(BaseModel):
     status: ComplianceStatus
     current_step: int | None = None
+    reason: str | None = Field(None, max_length=2000)
+    required_action: str | None = Field(None, max_length=2000)
 
 
 class CompleteWorkflowBody(BaseModel):
@@ -101,6 +103,8 @@ async def update_workflow_status(
         mode=mode,
         status=body.status,
         current_step=body.current_step,
+        reason=body.reason,
+        required_action=body.required_action,
     )
 
 
